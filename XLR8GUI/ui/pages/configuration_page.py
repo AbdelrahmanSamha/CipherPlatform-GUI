@@ -149,7 +149,7 @@ class ConfigPage(QWidget):
 
         # --- Baudrate
         baud_row = QHBoxLayout()
-        self.baud_edit = QLineEdit("1000000")
+        self.baud_edit = QLineEdit("921600")
         self.baud_edit.setReadOnly(True)
         baud_row.addWidget(QLabel("Baud Rate:"))
         baud_row.addWidget(self.baud_edit)

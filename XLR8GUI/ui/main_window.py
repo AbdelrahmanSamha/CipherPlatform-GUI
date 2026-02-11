@@ -7,6 +7,8 @@ from ui.pages.stream_page import StreamPage
 from ui.pages.rng_page import RNGPage
 from ui.pages.test_page import UartTestPage
 from ui.pages.image_page import ImagePage
+from ui.pages.sha256_page import Sha256Page
+
 class MainWindow(QWidget):
     def __init__(self, controller):
         super().__init__()
@@ -31,12 +33,16 @@ class MainWindow(QWidget):
         self.metrics_page = PlaceholderPage("Performance Metrics")
         self.test_page = UartTestPage(controller)
         self.image_page = ImagePage(controller)
+        self.sha256_page = Sha256Page(controller)
+
 
         self.pages.addWidget(self.config_page)     # index 0
         self.pages.addWidget(self.block_lab)       # index 1
         self.pages.addWidget(self.streaming_page)  # index 2
-        self.pages.addWidget(self.rng_page)        # index 3
-        self.pages.addWidget(self.image_page)
+        self.pages.addWidget(self.image_page)      # index 3
+        self.pages.addWidget(self.sha256_page)     # index 4
+        self.pages.addWidget(self.rng_page)        # index 5
+        
         self.pages.addWidget(self.metrics_page)    # index 4
         self.pages.addWidget(self.test_page)
 
@@ -54,11 +60,13 @@ class MainWindow(QWidget):
             self.pages.setCurrentIndex(1)
         elif page_name == "stream":
             self.pages.setCurrentIndex(2)
-        elif page_name == "rng": 
+        elif page_name == "image": 
             self.pages.setCurrentIndex(3)
-        elif page_name == "image":
+        elif page_name =="sha":
             self.pages.setCurrentIndex(4)
-        elif page_name =="metrics": 
+        elif page_name == "rng":
             self.pages.setCurrentIndex(5)
-        elif page_name =="test": 
+        elif page_name =="metrics": 
             self.pages.setCurrentIndex(6)
+        elif page_name =="test": 
+            self.pages.setCurrentIndex(7)

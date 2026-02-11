@@ -81,7 +81,7 @@ class FPGA:
         else:
             stream_bytes = self.dp.get_stream_bytes(text_data, is_hex)
 
-        # ----------------------------- skip padding for debugging -----------------------------
+        
         if self.config["direction"] == "enc":
             stream_bytes = self.dp.pkcs7_pad(stream_bytes)
             print(f"Padding applied (skipped now): {stream_bytes.hex()}")
@@ -245,6 +245,80 @@ class FPGA:
             print(f"sent data byte: {byte:02X}")
 
 
+
+
     def rng_operation(self, mode, key_size ):
 
         pass 
+
+
+
+    def sha_operation(self, text=None, in_path=None, is_hex=False):
+        """
+        Send a SHA-256 operation to the FPGA.
+
+        text: text input from GUI
+        in_path: optional file input
+        is_hex: whether input is hex
+        """
+
+        # ----------------- prepare output -----------------
+        self.controller.stream_output_path = None  # not used for SHA
+        self.controller.stream_buffer = b''
+
+        # ----------------- operation code -----------------
+        sha_cmd = self.dp.bits_to_byte("00000002")  # SHA operation command
+        self.controller.send_bytes(sha_cmd)
+        print(f"sent byte: {sha_cmd.hex()}")
+
+        # ----------------- get input data -----------------
+        if in_path:
+            data_bytes = self.dp.read_file(in_path, is_hex)
+        else:
+            data_bytes = self.dp.get_stream_bytes(text, is_hex)
+
+        # ----------------- SHA-256 padding (512-bit / 64-byte blocks) -----------------
+        bit_len = len(data_bytes) * 8
+        data_bytes += b'\x80'  # append '1' bit
+        pad_len = (56 - (len(data_bytes) % 64)) % 64
+        data_bytes += b'\x00' * pad_len
+        data_bytes += bit_len.to_bytes(8, "big")  # append original length in bits
+
+        total_chunks = len(data_bytes) // 64  # number of 512-bit chunks
+        print(f"Padded data length: {len(data_bytes)} bytes, total_chunks: {total_chunks}")
+
+        
+        if total_chunks <= 0xFF:
+            length_bytes_count = 1
+        elif total_chunks <= 0xFFFF:
+            length_bytes_count = 2
+        elif total_chunks <= 0xFFFFFF:
+            length_bytes_count = 3
+        else:
+            raise ValueError("Message too long for SHA operation")
+
+        # ----------------- build flags byte -----------------
+        # Bits 7-6 unused (0), bits 5-4 = length_bytes_count-1, bits 3-0 unused (0)
+        flags_bits_54 = (length_bytes_count - 1) & 0b11
+        flags_val = (flags_bits_54 << 4)
+        flags = bytes([flags_val])
+
+        # ----------------- send flags -----------------
+        for byte in flags:
+            self.controller.send_bytes(bytes([byte]))
+            print(f"sent byte: {byte:02X}")
+
+        # ----------------- send length bytes (MSB-first) -----------------
+        length_bytes = total_chunks.to_bytes(length_bytes_count, "big")
+        for byte in length_bytes:
+            self.controller.send_bytes(bytes([byte]))
+            print(f"sent byte: {byte:02X}")
+
+        # ----------------- send SHA-256 data bytes -----------------
+        print("about to print SHA-256 data bytes:")
+        for byte in data_bytes:
+            self.controller.send_bytes(bytes([byte]))
+            print(f"sent byte: {byte:02X}")
+
+        # store expected length in bytes (useful for verification later)
+        self.controller.sha_expected_len = len(data_bytes)

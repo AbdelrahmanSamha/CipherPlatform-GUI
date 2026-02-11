@@ -13,6 +13,7 @@ class Sidebar(QWidget):
         stream_btn = QPushButton("Stream Cipher")
         rng_btn = QPushButton("RNG")
         image_btn = QPushButton("Image Cipher")
+        sha_btn = QPushButton("SHA256")
         metrics_btn = QPushButton("Metrics")
         test_btn = QPushButton("Test")
 
@@ -22,13 +23,16 @@ class Sidebar(QWidget):
         rng_btn.clicked.connect(lambda: self.page_selected.emit("rng"))
         metrics_btn.clicked.connect(lambda: self.page_selected.emit("metrics"))
         image_btn.clicked.connect(lambda: self.page_selected.emit("image"))
+        sha_btn.clicked.connect(lambda: self.page_selected.emit("sha"))
         test_btn.clicked.connect(lambda: self.page_selected.emit("test"))
 
         layout.addWidget(config_btn)
         layout.addWidget(block_btn)
         layout.addWidget(stream_btn)
-        layout.addWidget(rng_btn)
         layout.addWidget(image_btn)
+        layout.addWidget(sha_btn)
+        layout.addWidget(rng_btn)
+
         layout.addWidget(metrics_btn)
         layout.addWidget(test_btn)
         layout.addStretch()
