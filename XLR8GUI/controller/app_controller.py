@@ -44,6 +44,7 @@ class AppController(QObject):
         self.stream_buffer = b''
         self.stream_expected_len = 0
         self.stream_output_path = None
+        self.stream_out_hex = None
 
         # for image header 
         self.image_header = None
@@ -69,7 +70,7 @@ class AppController(QObject):
         self.config.update(config) 
         self.config_updated.emit(config)
 
-    def fpga_operation(self, op=None,test_byte_tx= None, block_lab=None, stream_text=None, stream_in_path=None, stream_out_path=None, stream_is_hex=None,
+    def fpga_operation(self, op=None,test_byte_tx= None, block_lab=None, stream_text=None, stream_in_path=None, stream_out_path=None,stream_out_hex=None, stream_is_hex=None,
                        sha_text=None, sha_in_path=None, sha_is_hex=None): 
         if not op :
             print("failed FPGA operation, no op is selected") 
@@ -93,6 +94,7 @@ class AppController(QObject):
         self.stream_buffer = b''
         self.stream_expected_len = 0
         self.stream_output_path = None
+        self.stream_out_hex = None
         print(f"newop, current buffer value after flush: {self.serial_buffer.hex()}")
         
         if op == "block_lab": 
@@ -106,8 +108,10 @@ class AppController(QObject):
                 text_data=stream_text,
                 input_path=stream_in_path,
                 output_path=stream_out_path,
-                is_hex=stream_is_hex
+                is_hex=stream_is_hex,
+                
             )
+            self.stream_out_hex = stream_out_hex
             
         elif op == "image":
             self.current_page = "image"
@@ -131,7 +135,10 @@ class AppController(QObject):
         return True
 
     ####################################################################
-    def software_operation(self, op=None, block_lab=None, sha_text=None, sha_in_path=None, sha_is_hex=None, sha_out_hex=None):
+    def software_operation(self, op=None, block_lab=None, sha_text=None, sha_in_path=None, 
+                        sha_is_hex=None, sha_out_hex=None, stream_text=None, 
+                        stream_in_path=None, stream_out_path=None, stream_is_hex=None, 
+                        stream_out_hex=None):
         """
         Perform software-side operations.
 
@@ -148,12 +155,25 @@ class AppController(QObject):
         # -------------------------
         if op == "block_lab":
             return self.software_engine.block_lab_operation(block_lab)
-
+        
+        # -------------------------
+        # Stream 
+        # -------------------------
+        elif op == "stream":
+            return self.software_engine.stream_operation(
+                stream_text=stream_text,
+                stream_in_path=stream_in_path,
+                stream_out_path=stream_out_path,
+                stream_is_hex=stream_is_hex,
+                stream_out_hex=stream_out_hex
+            )
+        
         # -------------------------
         # SHA256
         # -------------------------
-        elif op =="sha256": 
+        elif op == "sha256": 
             return self.software_engine.hash_sha256(sha_text, sha_in_path, sha_is_hex, sha_out_hex)
+        
         # -------------------------
         # UNKNOWN OP
         # -------------------------
@@ -263,30 +283,76 @@ class AppController(QObject):
                 # STREAM PAGE
                 # -------------------------
                 elif self.current_page == "stream":
-                    print(f"received: {self.serial_buffer.hex()}")
+                    print(f"[UART] Received: {self.serial_buffer.hex()}")
+                    
                     while len(self.serial_buffer) >= 16:
                         block = self.serial_buffer[:16]
                         self.serial_buffer = self.serial_buffer[16:]
                         self.stream_buffer += block
-                        print("we are in the while loop for some reason. ")
+                        print(f"[STREAM] Block added. Buffer size: {len(self.stream_buffer)} bytes")
 
                         if len(self.stream_buffer) >= self.stream_expected_len:
+                            print(f"[STREAM] Expected length reached: {self.stream_expected_len} bytes")
+                            
                             result = self.stream_buffer
+                            
+                            # Apply PKCS7 unpadding if decryption
                             if self.config["direction"] == "dec":
                                 result = self.data_processing.pkcs7_unpad(result)
-                                
-                                    
-
-                            if self.stream_output_path:
-                                self.data_processing.write_file(self.stream_output_path, result)
+                                print(f"[STREAM] After unpadding: {len(result)} bytes")
+                            
+                            # -------------------------
+                            # ALWAYS WRITE TO FILE
+                            # -------------------------
+                            print(f"[STREAM] Writing to file: {self.stream_output_path}")
+                            
+                            # Convert based on output format
+                            if self.stream_out_hex:
+                                # Output as hex string
+                                output_data = result.hex()
+                                print(f"[STREAM] Output format: HEX ({len(output_data)} chars)")
                             else:
-                                print(f"emitted signal")
-                                self.uart_stream_page_received.emit(result)
+                                # Output as ASCII/raw bytes
+                                try:
+                                    output_data = result.decode('utf-8', errors='replace')
+                                    print(f"[STREAM] Output format: ASCII ({len(output_data)} chars)")
+                                except:
+                                    # Fallback to raw bytes if decode fails
+                                    output_data = result
+                                    print(f"[STREAM] Output format: RAW BYTES ({len(output_data)} bytes)")
+                            
+                            # Write to file
+                            try:
+                                if isinstance(output_data, bytes):
+                                    # Binary write
+                                    with open(self.stream_output_path, 'wb') as f:
+                                        f.write(output_data)
+                                else:
+                                    # Text write
+                                    with open(self.stream_output_path, 'w') as f:
+                                        f.write(output_data)
+                                print(f"[STREAM] ✅ File write successful")
+                            except Exception as e:
+                                print(f"[STREAM] ❌ File write error: {e}")
+                            
+                            # -------------------------
+                            # ALWAYS EMIT TO GUI (first 1000 bytes for display)
+                            # -------------------------
+                            print(f"[STREAM] Emitting signal to GUI (first 1000 bytes)")
+                            
+                            # Emit raw bytes (first 1000) - GUI will handle formatting
+                            gui_data = result[:1000]
+                            self.uart_stream_page_received.emit(gui_data)
+                            
+                            if len(result) > 1000:
+                                print(f"[STREAM] ⚠️ Output truncated for GUI display. Full data saved to file.")
+                            
                             # Reset stream state
+                            print(f"[STREAM] Resetting stream state")
                             self.stream_buffer = b''
                             self.stream_expected_len = 0
                             self.stream_output_path = None
-                            
+                            self.stream_out_hex = None
                 # -------------------------
                 # IMAGE PAGE
                 # -------------------------
