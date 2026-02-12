@@ -16,15 +16,25 @@ class SoftwareEngine:
         self.dp = controller.data_processing 
 
     def block_lab_operation(self, single_block):
-        key = bytes.fromhex(self.config["key"])
-        iv = bytes.fromhex(self.config["iv"]) if self.config["iv"] else None
+        """
+        Modified version - works directly with hex strings
+        
+        Args:
+            single_block: 32 hex character string (128 bits)
+        
+        Returns:
+            dict: {"rounds": [...], "final": "..."}
+        """
+        key = self.config["key"]  # hex string
+        iv = self.config["iv"] if self.config["iv"] else None  # hex string or None
+        
+        
         aes = AES(key)
-
-        blk_bytes = bytes.fromhex(single_block)
-        if self.config["direction"]=="enc":
-            return aes.encrypt_block_mode(blk_bytes, self.config["mode"], iv)
+        
+        if self.config["direction"] == "enc":
+            return aes.encrypt_block_mode(single_block, self.config["mode"], iv)
         else:
-            return aes.decrypt_block_mode(blk_bytes, self.config["mode"], iv)
+            return aes.decrypt_block_mode(single_block, self.config["mode"], iv)
 
     # ---------------------------------------------------
     # SHA256 Hashing

@@ -60,7 +60,7 @@ class AppController(QObject):
 
         self.fpga = FPGA(controller=self)
         self.software_engine = SoftwareEngine(controller=self)
-        #self.software_cipher
+        
     def show_main_window(self):
         self.main_window = MainWindow(controller=self)
         self.main_window.show()
@@ -69,7 +69,7 @@ class AppController(QObject):
         self.config.update(config) 
         self.config_updated.emit(config)
 
-    def fpga_operation(self, op=None, block_lab=None, stream_text=None, stream_in_path=None, stream_out_path=None, stream_is_hex=None,
+    def fpga_operation(self, op=None,test_byte_tx= None, block_lab=None, stream_text=None, stream_in_path=None, stream_out_path=None, stream_is_hex=None,
                        sha_text=None, sha_in_path=None, sha_is_hex=None): 
         if not op :
             print("failed FPGA operation, no op is selected") 
@@ -124,9 +124,11 @@ class AppController(QObject):
             self.current_page = "sha"
             self.fpga.sha_operation(text=sha_text, in_path=sha_in_path, is_hex=sha_is_hex)
         elif op == "test": 
-            self.fpga.test_byte()
+            self.fpga.test_byte(test_byte_tx = test_byte_tx)
             self.current_page = "test"
+        print("setting the read thread. ")
         self.start_reading_event.set()
+        return True
 
     ####################################################################
     def software_operation(self, op=None, block_lab=None, sha_text=None, sha_in_path=None, sha_is_hex=None, sha_out_hex=None):
@@ -166,7 +168,7 @@ class AppController(QObject):
         try:
             self.serial = serial.Serial(
                 port=port,
-                baudrate=921600 ,
+                baudrate=921600,
                 bytesize=serial.EIGHTBITS,
                 parity=serial.PARITY_NONE,
                 stopbits=serial.STOPBITS_ONE,
@@ -223,7 +225,8 @@ class AppController(QObject):
                 #    self.serial_buffer = b''
                 #    self.last_page = self.current_page
                 #    print(f"page changed, current buffer value : {self.serial_buffer.hex()}")
-
+                #print("Listening on UART...")
+                #print(f"in waiting: {self.serial.in_waiting}")
                 data = self.serial.read(1)
                 if not data:
                     continue

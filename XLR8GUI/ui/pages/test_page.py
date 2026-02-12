@@ -98,8 +98,8 @@ class UartTestPage(QWidget):
             self.output_box.append("❌ Invalid hex value.")
             return
 
-        success = self.controller.send_bytes(byte_value)# this should be something like : self.controller.fpga_operation(op="image", img_inputpath="", img_outputpath="") and the function will do the the work of sending the data to the FPGA. 
-        
+        #success = self.controller.send_bytes(byte_value)# this should be something like : self.controller.fpga_operation(op="image", img_inputpath="", img_outputpath="") and the function will do the the work of sending the data to the FPGA. 
+        success = self.controller.fpga_operation(op="test", test_byte_tx = byte_value)
         if success:
             self.output_box.append(f"➡ Sent: {byte_value.hex().upper()}")
         else:

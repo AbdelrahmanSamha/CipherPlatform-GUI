@@ -34,7 +34,7 @@ def send_and_print(ser, byte):
 def run_stream_test(ser):
     # ---------------- fixed values ----------------
     key_hex = "2B7E151628AED2A6ABF7158809CF4F3C"
-    data_hex = "6BC1BEE22E409F96E93D7E117393172AAE2D8A571E03AC9C9EB76FAC45AF8E51"
+    data_hex = "6BC1BEE22E409F96E93D7E117393172A"
 
     key_bytes = bytes.fromhex(key_hex)
     stream_bytes = bytes.fromhex(data_hex)
