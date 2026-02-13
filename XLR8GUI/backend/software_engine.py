@@ -308,7 +308,7 @@ class SoftwareEngine:
         print(f"[OUTPUT] Writing to: {stream_out_path}")
         
         try:
-            with open(stream_out_path, 'w') as f:
+            with open(stream_out_path, 'w', encoding='utf-8') as f:
                 f.write(final_output)
             print(f"[OUTPUT] ✅ File write successful")
         except Exception as e:

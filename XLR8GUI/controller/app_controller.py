@@ -329,7 +329,7 @@ class AppController(QObject):
                                         f.write(output_data)
                                 else:
                                     # Text write
-                                    with open(self.stream_output_path, 'w') as f:
+                                    with open(self.stream_output_path, 'w', encoding='utf-8') as f:
                                         f.write(output_data)
                                 print(f"[STREAM] ✅ File write successful")
                             except Exception as e:

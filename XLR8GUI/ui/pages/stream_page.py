@@ -432,11 +432,8 @@ class StreamPage(QWidget):
         # Get output format
         output_hex = self.output_hex_radio.isChecked()
         
-        # Get output path
-        if  self.text_mode_radio.isChecked():
-            fpga_out_path = None
-        else : 
-            fpga_out_path, _ = self._get_output_paths()
+
+        fpga_out_path, _ = self._get_output_paths()
 
         # Call controller
         self.controller.fpga_operation(
