@@ -1,4 +1,3 @@
-
 #controll the operations sent to the FPGA. can be done serially. 
 
 class FPGA: 
@@ -24,8 +23,12 @@ class FPGA:
 
         mode_bits = mode_map.get(self.config["mode"], 0)
         dir_bit = 1 if self.config["direction"] == "dec" else 0
-
-        flags_val = (dir_bit << 3) | mode_bits
+        
+        # NEW: Get key size bits (bits 7-6)
+        key_size_bits = self.dp.get_key_size_bits()
+        
+        # Build flags: [key_size(2) | unused(2) | dir(1) | mode(3)]
+        flags_val = (key_size_bits << 6) | (dir_bit << 3) | mode_bits
         flags = bytes([flags_val])
 
         self.controller.send_bytes(flags)
@@ -36,13 +39,20 @@ class FPGA:
         self.controller.send_bytes(length)
         print(f"sent byte: {length.hex()}")
 
-        # ----------------- Process and send key -----------------
-        key_bytes = self.dp.get_key_bytes()
+        # ----------------- Process and send key (ALWAYS 256 bits = 32 bytes) -----------------
+        key_bytes = self.dp.get_padded_key_bytes()  # NEW: Use padded key
         print("about to print the key bytes:")
         for byte in key_bytes:
             self.controller.send_bytes(bytes([byte]))
             print(f"sent byte: {byte:02X}")
 
+        # ----------------- send iv if needed -----------------
+        if self.config["mode"] in ["CBC", "CTR", "CFB", "OFB"]:
+            iv_bytes = self.dp.get_iv_bytes()
+            for byte in iv_bytes:
+                self.controller.send_bytes(bytes([byte]))
+                print(f"sent byte: {byte:02X}")
+                
         # ----------------- Process and send block -----------------
         block_bytes = self.dp.get_block_bytes(single_block)
         print("about to print the data bytes:")
@@ -84,7 +94,7 @@ class FPGA:
         
         if self.config["direction"] == "enc":
             stream_bytes = self.dp.pkcs7_pad(stream_bytes)
-            print(f"Padding applied (skipped now): {stream_bytes.hex()}")
+            print(f"Padding applied : {stream_bytes.hex()}")
 
         total_len = len(stream_bytes)
 
