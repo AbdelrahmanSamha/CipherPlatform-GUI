@@ -15,16 +15,16 @@ class FPGA:
         # ----------------- build flags byte -----------------
         mode_map = {
             "ECB": 0b000,
-            "CBC": 0b001,
-            "CTR": 0b010,
-            "OFB": 0b011,
-            "CFB": 0b100,
+            "CTR": 0b001,
+            "CBC": 0b010,
+            "CFB": 0b011,
+            "OFB": 0b100,
         }
 
         mode_bits = mode_map.get(self.config["mode"], 0)
         dir_bit = 1 if self.config["direction"] == "dec" else 0
         
-        # NEW: Get key size bits (bits 7-6)
+        # Get key size bits (bits 7-6)
         key_size_bits = self.dp.get_key_size_bits()
         
         # Build flags: [key_size(2) | unused(2) | dir(1) | mode(3)]
@@ -40,7 +40,7 @@ class FPGA:
         print(f"sent byte: {length.hex()}")
 
         # ----------------- Process and send key (ALWAYS 256 bits = 32 bytes) -----------------
-        key_bytes = self.dp.get_padded_key_bytes()  # NEW: Use padded key
+        key_bytes = self.dp.get_padded_key_bytes()  # Use padded key
         print("about to print the key bytes:")
         for byte in key_bytes:
             self.controller.send_bytes(bytes([byte]))
@@ -111,15 +111,20 @@ class FPGA:
         # ----------------------------- build flags byte -----------------------------
         mode_map = {
             "ECB": 0b000,
-            "CBC": 0b001,
-            "CTR": 0b010,
-            "OFB": 0b011,
-            "CFB": 0b100,
+            "CTR": 0b001,
+            "CBC": 0b010,
+            "CFB": 0b011,
+            "OFB": 0b100,
         }
         mode_bits = mode_map.get(self.config["mode"], 0)
         dir_bit = 0 if self.config["direction"] == "enc" else 1
         length_size_bits = (length_bytes_count - 1) & 0b11
-        flags_val = ((length_size_bits << 4) | (dir_bit << 3) | mode_bits)
+        
+        # NEW: Get key size bits (bits 7-6)
+        key_size_bits = self.dp.get_key_size_bits()
+        
+        # Build flags: [key_size(2) | length_size(2) | dir(1) | mode(3)]
+        flags_val = (key_size_bits << 6) | (length_size_bits << 4) | (dir_bit << 3) | mode_bits
         flags = bytes([flags_val])
 
         # ----------------- send flags -----------------
@@ -136,9 +141,9 @@ class FPGA:
         # store expected length
         self.controller.stream_expected_len = total_len
 
-        # ----------------- send key -----------------
+        # ----------------- send key (ALWAYS 256 bits = 32 bytes) -----------------
         print("about to print the key bytes:")
-        key_bytes = self.dp.get_key_bytes()
+        key_bytes = self.dp.get_padded_key_bytes()  # NEW: Use padded key
         for byte in key_bytes:
             self.controller.send_bytes(bytes([byte]))
             print(f"sent byte: {byte:02X}")
@@ -204,15 +209,20 @@ class FPGA:
         # ----------------- Build flags byte -----------------
         mode_map = {
             "ECB": 0b000,
-            "CBC": 0b001,
-            "CTR": 0b010,
-            "OFB": 0b011,
-            "CFB": 0b100,
+            "CTR": 0b001,
+            "CBC": 0b010,
+            "CFB": 0b011,
+            "OFB": 0b100,
         }
         mode_bits = mode_map.get(self.config["mode"], 0)
         dir_bit = 0 if self.config["direction"] == "enc" else 1
         length_size_bits = (length_bytes_count - 1) & 0b11
-        flags_val = ((length_size_bits << 4) | (dir_bit << 3) | mode_bits)
+        
+        # NEW: Get key size bits (bits 7-6)
+        key_size_bits = self.dp.get_key_size_bits()
+        
+        # Build flags: [key_size(2) | length_size(2) | dir(1) | mode(3)]
+        flags_val = (key_size_bits << 6) | (length_size_bits << 4) | (dir_bit << 3) | mode_bits
         flags = bytes([flags_val])
 
         # ----------------- Send command -----------------
@@ -234,15 +244,15 @@ class FPGA:
         # ----------------- Store expected length -----------------
         self.controller.stream_expected_len = total_len
 
-        # ----------------- Send key -----------------
+        # ----------------- Send key (ALWAYS 256 bits = 32 bytes) -----------------
         print("about to send key bytes:")
-        key_bytes = self.dp.get_key_bytes()
+        key_bytes = self.dp.get_padded_key_bytes()  # NEW: Use padded key
         for byte in key_bytes:
             self.controller.send_bytes(bytes([byte]))
             print(f"sent key byte: {byte:02X}")
 
         # ----------------- Send IV/Nonce if needed -----------------
-        if self.config["mode"] in ["CBC", "CTR", "CFB", "OFB"]: #"CBC", "CFB", "OFB", "CTR"
+        if self.config["mode"] in ["CBC", "CTR", "CFB", "OFB"]:
             iv_bytes = self.dp.get_iv_bytes()
             for byte in iv_bytes:
                 self.controller.send_bytes(bytes([byte]))
