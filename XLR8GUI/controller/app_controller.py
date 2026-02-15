@@ -255,11 +255,11 @@ class AppController(QObject):
                 if not data:
                     continue
                 #print(f"what is waiting: {self.serial.in_waiting}")
-                print(f"data: {data.hex()}")
+                #print(f"data: {data.hex()}")
                 # accumulate
                 self.serial_buffer += data
-                print (f"buffer data: {self.serial_buffer.hex()}")
-                print (f"current page: {self.current_page}")
+                #print (f"buffer data: {self.serial_buffer.hex()}")
+                #print (f"current page: {self.current_page}")
 
 
                 # -------------------------
