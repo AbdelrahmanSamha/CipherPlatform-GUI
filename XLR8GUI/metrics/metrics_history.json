@@ -1,0 +1,74 @@
+{
+  "metrics": [
+    {
+      "data_size": 16,
+      "direction": "enc",
+      "fpga_time_ms": 86.07520000077784,
+      "key_size": 128,
+      "mode": "ECB",
+      "operation": "block_lab",
+      "software_time_ms": 5.652499996358529,
+      "timestamp": "2026-02-14 02:15:34"
+    },
+    {
+      "data_size": 176,
+      "direction": "enc",
+      "fpga_time_ms": 104.56459999841172,
+      "key_size": 128,
+      "mode": "ECB",
+      "operation": "stream",
+      "software_time_ms": 3.065299999434501,
+      "timestamp": "2026-02-14 02:22:24"
+    },
+    {
+      "data_size": 16,
+      "direction": "enc",
+      "fpga_time_ms": 91.9240000002901,
+      "key_size": 128,
+      "mode": "ECB",
+      "operation": "block_lab",
+      "software_time_ms": 5.353400003514253,
+      "timestamp": "2026-02-14 02:23:14"
+    },
+    {
+      "data_size": 176,
+      "direction": "enc",
+      "fpga_time_ms": 103.95769999740878,
+      "key_size": 128,
+      "mode": "ECB",
+      "operation": "stream",
+      "software_time_ms": 1.4182999948388897,
+      "timestamp": "2026-02-14 02:23:26"
+    },
+    {
+      "data_size": 352,
+      "direction": "enc",
+      "fpga_time_ms": 144.86890000262065,
+      "key_size": 128,
+      "mode": "ECB",
+      "operation": "stream",
+      "software_time_ms": 1.5899000063654967,
+      "timestamp": "2026-02-14 02:23:36"
+    },
+    {
+      "data_size": 704,
+      "direction": "enc",
+      "fpga_time_ms": 231.3986999943154,
+      "key_size": 128,
+      "mode": "ECB",
+      "operation": "stream",
+      "software_time_ms": 1.7301999978371896,
+      "timestamp": "2026-02-14 02:24:39"
+    },
+    {
+      "data_size": 16,
+      "direction": "enc",
+      "fpga_time_ms": 96.79830000095535,
+      "key_size": 128,
+      "mode": "ECB",
+      "operation": "block_lab",
+      "software_time_ms": 5.4395000042859465,
+      "timestamp": "2026-02-14 02:27:42"
+    }
+  ]
+}

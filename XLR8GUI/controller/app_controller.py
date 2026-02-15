@@ -22,6 +22,7 @@ class AppController(QObject):
     uart_rng_page_received = Signal(bytes, bytes)
     uart_image_page_received = Signal(bytes)
     uart_sha_page_received = Signal(bytes)
+    metrics_store_signal = Signal (dict)
     def __init__(self):
         super().__init__()
 
@@ -57,6 +58,9 @@ class AppController(QObject):
         self.serial_buffer = b''
         self.start_reading_event = threading.Event()
         self.data_processing = DataProcessing(self.config)
+
+        #for metrics
+        self.metrics_page = None
 
 
         self.fpga = FPGA(controller=self)
@@ -122,7 +126,7 @@ class AppController(QObject):
 
         elif op =="rng": 
             self.current_page = "rng"
-            self.fpga.rng_operation(mode=self.config["mode"], key_size=self.config["key_size"])
+            self.fpga.rng_operation()
             
         elif op =="sha256": 
             self.current_page = "sha"
@@ -250,12 +254,12 @@ class AppController(QObject):
                 data = self.serial.read(1)
                 if not data:
                     continue
-                #print(self.serial.in_waiting)
+                #print(f"what is waiting: {self.serial.in_waiting}")
                 print(f"data: {data.hex()}")
                 # accumulate
                 self.serial_buffer += data
                 print (f"buffer data: {self.serial_buffer.hex()}")
-
+                print (f"current page: {self.current_page}")
 
 
                 # -------------------------
@@ -406,29 +410,23 @@ class AppController(QObject):
                 # RNG PAGE
                 # -------------------------
                 elif self.current_page == "rng":
-                    ks_inbytes = {"128": 16, "192": 24, "256": 32}.get(self.config["key_size"])
-                    if ks_inbytes is None:
-                        continue
+                    #ks_inbytes = {"128": 16, "192": 24, "256": 32}.get(self.config["key_size"])
 
-                    total_len = ks_inbytes + 16  # key + IV
+                    total_len = 32 + 32  # key + IV, both are segmented later in the page logic....
                     while len(self.serial_buffer) >= total_len:
                         packet = self.serial_buffer[:total_len]
                         self.serial_buffer = self.serial_buffer[total_len:]
-                        key = packet[:ks_inbytes]
-                        iv = packet[ks_inbytes:]
+                        key = packet[:32]
+                        iv = packet[32:]
                         self.uart_rng_page_received.emit(key, iv)
 
             except Exception as e:
                 print(f"UART read error: {e}")
 
-    # ---- PLACEHOLDERS FOR FUTURE ----
-    def start_block_encryption(self):
-        print("[Controller] Start block encryption")
-        # TODO:
-        # 1. Prepare FPGA
-        # 2. Send commands over UART
-        # 3. Receive ACK
-        # 4. Update UI
 
-    def reset_fpga(self):
-        print("[Controller] Reset FPGA")
+    
+
+
+    #called by the pages
+    def record_metric(self, metric_data):
+        self.metrics_store_signal.emit(metric_data)

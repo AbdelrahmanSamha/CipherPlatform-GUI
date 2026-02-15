@@ -1,8 +1,9 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout,
-    QLabel, QPushButton, QLineEdit, QGroupBox,QScrollArea
+    QLabel, QPushButton, QLineEdit, QGroupBox, QScrollArea
 )
 from PySide6.QtCore import Qt
+import time
 
 
 class BlockLabPage(QWidget):
@@ -10,11 +11,24 @@ class BlockLabPage(QWidget):
         super().__init__()
         self.controller = controller
 
+        # Metrics tracking
+        self.fpga_done = False
+        self.software_done = False
+        self.fpga_time_ms = 0
+        self.software_time_ms = 0
+        self.data_size = 16  # Single block
+
         # round tracking
         self.current_block_index = 0
         self.total_expected_blocks = 0
 
         self.controller.uart_blocklab_page_received.connect(self.handle_uart_block)
+
+        # -----------------------------
+        # Inner content widget
+        # -----------------------------
+        content_widget = QWidget()
+        content_layout = QVBoxLayout(content_widget)
 
         # -----------------------------
         # Title
@@ -46,14 +60,18 @@ class BlockLabPage(QWidget):
         start_btn = QPushButton("Start Encryption")
         reset_btn = QPushButton("Reset FPGA")
         sw_btn = QPushButton("Start Software Encryption")
+        self.record_metrics_btn = QPushButton("📊 Record Metrics")
+        self.record_metrics_btn.setEnabled(False)
 
         start_btn.clicked.connect(self.start)
         reset_btn.clicked.connect(self.reset)
         sw_btn.clicked.connect(self.start_software)
+        self.record_metrics_btn.clicked.connect(self.record_metrics)
 
         btn_layout = QHBoxLayout()
         btn_layout.addWidget(start_btn)
         btn_layout.addWidget(sw_btn)
+        btn_layout.addWidget(self.record_metrics_btn)
         btn_layout.addWidget(reset_btn)
 
         # -----------------------------
@@ -76,7 +94,7 @@ class BlockLabPage(QWidget):
         final_layout.addWidget(self.final_box)
 
         # -----------------------------
-        # Software round outputs (NEW)
+        # Software round outputs
         # -----------------------------
         self.sw_round_boxes = []
         self.sw_round_labels = []
@@ -94,7 +112,7 @@ class BlockLabPage(QWidget):
         sw_final_layout.addWidget(self.sw_final_box)
 
         # -----------------------------
-        # Comparison label (NEW)
+        # Comparison label
         # -----------------------------
         self.compare_label = QLabel("No comparison yet")
         self.compare_label.setStyleSheet("padding: 6px; font-weight: bold;")
@@ -108,12 +126,6 @@ class BlockLabPage(QWidget):
         # -----------------------------
         # Assemble layout
         # -----------------------------
-        # -----------------------------
-        # Inner content widget
-        # -----------------------------
-        content_widget = QWidget()
-        content_layout = QVBoxLayout(content_widget)
-
         content_layout.addWidget(title)
         content_layout.addWidget(self.config_label)
         content_layout.addLayout(block_layout)
@@ -208,7 +220,7 @@ class BlockLabPage(QWidget):
             self.sw_round_boxes.append(sw_box)
 
     # -----------------------------
-    # UART handler (UNCHANGED)
+    # UART handler
     # -----------------------------
     def handle_uart_block(self, block: bytes):
         hex_text = block.hex().upper()
@@ -218,11 +230,16 @@ class BlockLabPage(QWidget):
         else:
             self.final_box.setText(hex_text)
             self.status_label.setText("✅ FPGA Encryption complete")
+            
+            # Record FPGA time
+            self.fpga_time_ms = (time.perf_counter() - self.fpga_start_time) * 1000
+            self.fpga_done = True
+            self._update_record_button()
 
         self.current_block_index += 1
 
     # -----------------------------
-    # FPGA start (UNCHANGED)
+    # FPGA start
     # -----------------------------
     def start(self):
         block = self.block_input.text()
@@ -248,10 +265,13 @@ class BlockLabPage(QWidget):
             box.clear()
         self.final_box.clear()
 
+        # Start timing
+        self.fpga_start_time = time.perf_counter()
+
         self.controller.fpga_operation(op="block_lab", block_lab=block)
 
     # -----------------------------
-    # Software start (NEW)
+    # Software start
     # -----------------------------
     def start_software(self):
         block_hex = self.block_input.text()
@@ -275,13 +295,18 @@ class BlockLabPage(QWidget):
             box.clear()
         self.sw_final_box.clear()
 
-        # -----------------------------
-        # CALL CONTROLLER SOFTWARE OP
-        # -----------------------------
+        # Start timing
+        start_time = time.perf_counter()
+
+        # Call controller
         result = self.controller.software_operation(
             op="block_lab",
             block_lab=block_hex
         )
+
+        # End timing
+        end_time = time.perf_counter()
+        self.software_time_ms = (end_time - start_time) * 1000
 
         if not result:
             self.compare_label.setText("❌ Software operation failed")
@@ -298,21 +323,66 @@ class BlockLabPage(QWidget):
 
         self.sw_final_box.setText(sw_final.upper())
 
-        # -----------------------------
         # Compare with FPGA result
-        # -----------------------------
         fpga_final = self.final_box.text()
 
         if not fpga_final:
             self.compare_label.setText("⚠ FPGA result not available")
-            return
-
-        if fpga_final.upper() == sw_final.upper():
+        elif fpga_final.upper() == sw_final.upper():
             self.compare_label.setText("✅ Results match")
             self.compare_label.setStyleSheet("color: green; font-weight: bold;")
         else:
             self.compare_label.setText("❌ Results DO NOT match")
             self.compare_label.setStyleSheet("color: red; font-weight: bold;")
+
+        # Mark software as done
+        self.software_done = True
+        self._update_record_button()
+
+    # -----------------------------
+    # Metrics button update
+    # -----------------------------
+    def _update_record_button(self):
+        """Update the record metrics button state"""
+        if self.fpga_done and self.software_done:
+            self.record_metrics_btn.setEnabled(True)
+            self.record_metrics_btn.setStyleSheet(
+                "background-color: #4CAF50; color: white; font-weight: bold;"
+            )
+        else:
+            self.record_metrics_btn.setEnabled(False)
+            self.record_metrics_btn.setStyleSheet("")
+
+    # -----------------------------
+    # Record metrics
+    # -----------------------------
+    def record_metrics(self):
+        """Record metrics to metrics page"""
+        if not (self.fpga_done and self.software_done):
+            return
+        
+        # Get key size from config
+        key_size = self.controller.config.get("key_size", 128)
+        
+        # Record metric via controller
+        self.controller.record_metric({
+            "operation": "block_lab",
+            "data_size": self.data_size,
+            "mode": self.controller.config["mode"],
+            "key_size": key_size,
+            "direction": self.controller.config["direction"],
+            "fpga_time_ms": self.fpga_time_ms,
+            "software_time_ms": self.software_time_ms,
+        })
+        
+        # Show feedback
+        self.status_label.setText("✅ Metrics recorded successfully!")
+        self.status_label.setStyleSheet("color: green; padding: 4px;")
+        
+        # Reset for next run
+        self.fpga_done = False
+        self.software_done = False
+        self._update_record_button()
 
     # -----------------------------
     # Reset
@@ -329,6 +399,11 @@ class BlockLabPage(QWidget):
             box.clear()
         for box in self.sw_round_boxes:
             box.clear()
+
+        # Reset metrics state
+        self.fpga_done = False
+        self.software_done = False
+        self._update_record_button()
 
     # -----------------------------
     # Config update

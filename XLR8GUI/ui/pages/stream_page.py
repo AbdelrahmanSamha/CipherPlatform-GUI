@@ -7,12 +7,20 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Slot
 import os
+import time
 
 
 class StreamPage(QWidget):
     def __init__(self, controller):
         super().__init__()
         self.controller = controller
+
+        # Metrics tracking
+        self.fpga_done = False
+        self.software_done = False
+        self.fpga_time_ms = 0
+        self.software_time_ms = 0
+        self.data_size = 0
 
         # Create main widget and layout for scroll area
         main_widget = QWidget()
@@ -166,7 +174,7 @@ class StreamPage(QWidget):
         outputs_container.addWidget(software_output_group)
 
         # =========================================================
-        # COMPARISON SECTION (NEW)
+        # COMPARISON SECTION
         # =========================================================
         comparison_group = QGroupBox("Output Comparison")
         
@@ -195,15 +203,19 @@ class StreamPage(QWidget):
 
         start_fpga_btn = QPushButton("Start FPGA Streaming")
         start_software_btn = QPushButton("Start Software Cipher")
+        self.record_metrics_btn = QPushButton("📊 Record Metrics")
+        self.record_metrics_btn.setEnabled(False)
         cancel_btn = QPushButton("Cancel")
 
         start_fpga_btn.clicked.connect(self.start_fpga_stream)
         start_software_btn.clicked.connect(self.start_software_stream)
+        self.record_metrics_btn.clicked.connect(self.record_metrics)
         cancel_btn.clicked.connect(self.cancel_stream)
 
         btn_row = QHBoxLayout()
         btn_row.addWidget(start_fpga_btn)
         btn_row.addWidget(start_software_btn)
+        btn_row.addWidget(self.record_metrics_btn)
         btn_row.addWidget(cancel_btn)
 
         # =========================================================
@@ -280,7 +292,28 @@ class StreamPage(QWidget):
             self.input_path.setText(path)
 
     # =============================================================
-    # COMPARISON LOGIC (NEW)
+    # DATA SIZE CALCULATION
+    # =============================================================
+    def _calculate_data_size(self):
+        """Calculate the input data size in bytes"""
+        if self.text_mode_radio.isChecked():
+            data = self.text_input.toPlainText()
+            if self.hex_type_radio.isChecked():
+                # Hex input - each pair of hex chars = 1 byte
+                hex_cleaned = data.replace(" ", "").replace("\n", "").replace("\r", "")
+                return len(hex_cleaned) // 2
+            else:
+                # ASCII input
+                return len(data.encode('utf-8'))
+        else:
+            # File input
+            in_path = self.input_path.text()
+            if in_path and os.path.exists(in_path):
+                return os.path.getsize(in_path)
+        return 0
+
+    # =============================================================
+    # COMPARISON LOGIC
     # =============================================================
     def compare_outputs(self):
         """Compare FPGA and Software outputs (both GUI text and files)"""
@@ -340,10 +373,10 @@ class StreamPage(QWidget):
         
         if fpga_file_exists and software_file_exists:
             try:
-                with open(fpga_file_path, 'r') as f:
+                with open(fpga_file_path, 'r', encoding='utf-8') as f:
                     fpga_file_content = f.read()
                 
-                with open(software_file_path, 'r') as f:
+                with open(software_file_path, 'r', encoding='utf-8') as f:
                     software_file_content = f.read()
                 
                 print(f"FPGA file size: {len(fpga_file_content)} chars")
@@ -402,6 +435,14 @@ class StreamPage(QWidget):
         self.fpga_output.clear()
         self.comparison_result.clear()
         
+        # Calculate and store data size
+        self.data_size = self._calculate_data_size()
+        
+        if self.data_size == 0:
+            self.status_label.setText("❌ No input data")
+            self.status_label.setStyleSheet("color: red;")
+            return
+        
         # Get input data
         if self.text_mode_radio.isChecked():
             data = self.text_input.toPlainText()
@@ -432,8 +473,10 @@ class StreamPage(QWidget):
         # Get output format
         output_hex = self.output_hex_radio.isChecked()
         
-
         fpga_out_path, _ = self._get_output_paths()
+
+        # Start timing
+        self.fpga_start_time = time.perf_counter()
 
         # Call controller
         self.controller.fpga_operation(
@@ -454,6 +497,14 @@ class StreamPage(QWidget):
         # Clear software output and comparison
         self.software_output.clear()
         self.comparison_result.clear()
+        
+        # Calculate and store data size
+        self.data_size = self._calculate_data_size()
+        
+        if self.data_size == 0:
+            self.status_label.setText("❌ No input data")
+            self.status_label.setStyleSheet("color: red;")
+            return
         
         # Get input data
         if self.text_mode_radio.isChecked():
@@ -488,6 +539,9 @@ class StreamPage(QWidget):
         # Get output path
         _, software_out_path = self._get_output_paths()
 
+        # Start timing
+        start_time = time.perf_counter()
+
         # Call controller software operation
         result = self.controller.software_operation(
             op="stream",
@@ -498,6 +552,10 @@ class StreamPage(QWidget):
             stream_out_hex=output_hex
         )
 
+        # End timing
+        end_time = time.perf_counter()
+        self.software_time_ms = (end_time - start_time) * 1000
+
         # Handle result
         if result:
             self.status_label.setText("✅ Software processing complete")
@@ -506,9 +564,58 @@ class StreamPage(QWidget):
             # Display result in software output box
             if "output" in result:
                 self.software_output.setPlainText(result["output"])
+            
+            # Mark software as done
+            self.software_done = True
+            self._update_record_button()
         else:
             self.status_label.setText("❌ Software processing failed")
             self.status_label.setStyleSheet("color: red;")
+
+    # =============================================================
+    # Metrics button update
+    # =============================================================
+    def _update_record_button(self):
+        """Update the record metrics button state"""
+        if self.fpga_done and self.software_done:
+            self.record_metrics_btn.setEnabled(True)
+            self.record_metrics_btn.setStyleSheet(
+                "background-color: #4CAF50; color: white; font-weight: bold;"
+            )
+        else:
+            self.record_metrics_btn.setEnabled(False)
+            self.record_metrics_btn.setStyleSheet("")
+
+    # =============================================================
+    # Record metrics
+    # =============================================================
+    def record_metrics(self):
+        """Record metrics to metrics page"""
+        if not (self.fpga_done and self.software_done):
+            return
+        
+        # Get key size from config
+        key_size = self.controller.config.get("key_size", 128)
+        
+        # Record metric via controller
+        self.controller.record_metric({
+            "operation": "stream",
+            "data_size": self.data_size,
+            "mode": self.controller.config["mode"],
+            "key_size": key_size,
+            "direction": self.controller.config["direction"],
+            "fpga_time_ms": self.fpga_time_ms,
+            "software_time_ms": self.software_time_ms,
+        })
+        
+        # Show feedback
+        self.status_label.setText("✅ Metrics recorded successfully!")
+        self.status_label.setStyleSheet("color: green; padding: 4px;")
+        
+        # Reset for next run
+        self.fpga_done = False
+        self.software_done = False
+        self._update_record_button()
 
     # =============================================================
     # Cancel
@@ -517,9 +624,11 @@ class StreamPage(QWidget):
         """Cancel streaming operations"""
         self.status_label.setText("⛔ Streaming cancelled")
         self.status_label.setStyleSheet("color: orange;")
-
-        # Placeholder for actual cancellation logic
-        # self.controller.cancel_stream()
+        
+        # Reset metrics state
+        self.fpga_done = False
+        self.software_done = False
+        self._update_record_button()
 
     # =============================================================
     # Configuration update
@@ -555,5 +664,18 @@ class StreamPage(QWidget):
             except:
                 text = str(data)
 
+        # Add truncation notice if data is at 1000 byte limit
+        if len(data) >= 1000:
+            text += "\n\n... (Output truncated for display. Full output saved to tmp/fpga_stream_output)"
+
         # Display in FPGA output box
         self.fpga_output.setPlainText(text)
+        
+        # Record FPGA time
+        self.fpga_time_ms = (time.perf_counter() - self.fpga_start_time) * 1000
+        self.fpga_done = True
+        self._update_record_button()
+        
+        # Update status
+        self.status_label.setText("✅ FPGA streaming complete")
+        self.status_label.setStyleSheet("color: green;")

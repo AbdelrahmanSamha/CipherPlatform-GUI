@@ -8,6 +8,7 @@ from ui.pages.rng_page import RNGPage
 from ui.pages.test_page import UartTestPage
 from ui.pages.image_page import ImagePage
 from ui.pages.sha256_page import Sha256Page
+from ui.pages.metrics_page import MetricsPage 
 
 class MainWindow(QWidget):
     def __init__(self, controller):
@@ -30,11 +31,11 @@ class MainWindow(QWidget):
         self.block_lab = BlockLabPage(controller)
         self.streaming_page = StreamPage(controller)
         self.rng_page = RNGPage(controller)
-        self.metrics_page = PlaceholderPage("Performance Metrics")
+        self.metrics_page = MetricsPage(controller)
         self.test_page = UartTestPage(controller)
         self.image_page = ImagePage(controller)
         self.sha256_page = Sha256Page(controller)
-
+        
 
         self.pages.addWidget(self.config_page)     # index 0
         self.pages.addWidget(self.block_lab)       # index 1
@@ -42,9 +43,8 @@ class MainWindow(QWidget):
         self.pages.addWidget(self.image_page)      # index 3
         self.pages.addWidget(self.sha256_page)     # index 4
         self.pages.addWidget(self.rng_page)        # index 5
-        
-        self.pages.addWidget(self.metrics_page)    # index 4
-        self.pages.addWidget(self.test_page)
+        self.pages.addWidget(self.metrics_page)    # index 6
+        self.pages.addWidget(self.test_page)       #index 7
 
         # Layout
         layout = QHBoxLayout()

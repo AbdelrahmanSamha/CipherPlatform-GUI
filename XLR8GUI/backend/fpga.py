@@ -35,7 +35,7 @@ class FPGA:
         print(f"sent byte: {flags_val:02X}")
 
         # ----------------- send length -----------------
-        length = self.dp.bits_to_byte("00010000")  # 16 bytes
+        length = self.dp.bits_to_byte("00000001")  # 16 bytes
         self.controller.send_bytes(length)
         print(f"sent byte: {length.hex()}")
 
@@ -60,8 +60,7 @@ class FPGA:
             self.controller.send_bytes(bytes([byte]))
             print(f"sent byte: {byte:02X}")
 
-    def test_byte(self, test_byte_tx: bytes): 
-        self.controller.send_bytes(test_byte_tx)
+
 
 
     def stream_operation(self,
@@ -96,7 +95,7 @@ class FPGA:
             stream_bytes = self.dp.pkcs7_pad(stream_bytes)
             print(f"Padding applied : {stream_bytes.hex()}")
 
-        total_len = len(stream_bytes)
+        total_len = len(stream_bytes) // 16
 
         # ----------------------------- determine number of length bytes -----------------------------
         if total_len <= 0xFF:
@@ -139,7 +138,7 @@ class FPGA:
             print(f"sent byte: {byte:02X}")
 
         # store expected length
-        self.controller.stream_expected_len = total_len
+        self.controller.stream_expected_len = total_len * 16
 
         # ----------------- send key (ALWAYS 256 bits = 32 bytes) -----------------
         print("about to print the key bytes:")
@@ -194,7 +193,7 @@ class FPGA:
         if self.config["direction"] == "enc":
             pixel_data = self.dp.pkcs7_pad(pixel_data)
 
-        total_len = len(pixel_data)
+        total_len = len(pixel_data) // 16
 
         # ----------------- Determine number of length bytes -----------------
         if total_len <= 0xFF:
@@ -242,7 +241,7 @@ class FPGA:
             print(f"sent length byte: {byte:02X}")
 
         # ----------------- Store expected length -----------------
-        self.controller.stream_expected_len = total_len
+        self.controller.stream_expected_len = total_len * 16
 
         # ----------------- Send key (ALWAYS 256 bits = 32 bytes) -----------------
         print("about to send key bytes:")
@@ -264,12 +263,7 @@ class FPGA:
             self.controller.send_bytes(bytes([byte]))
             print(f"sent data byte: {byte:02X}")
 
-
-
-
-    def rng_operation(self, mode, key_size ):
-
-        pass 
+         
 
 
 
@@ -287,7 +281,7 @@ class FPGA:
         self.controller.stream_buffer = b''
 
         # ----------------- operation code -----------------
-        sha_cmd = self.dp.bits_to_byte("00000002")  # SHA operation command
+        sha_cmd = self.dp.bits_to_byte("00000011")  # SHA operation command
         self.controller.send_bytes(sha_cmd)
         print(f"sent byte: {sha_cmd.hex()}")
 
@@ -304,7 +298,7 @@ class FPGA:
         data_bytes += b'\x00' * pad_len
         data_bytes += bit_len.to_bytes(8, "big")  # append original length in bits
 
-        total_chunks = len(data_bytes) // 64  # number of 512-bit chunks
+        total_chunks = len(data_bytes) // 64  # number of 512-bit chunks 
         print(f"Padded data length: {len(data_bytes)} bytes, total_chunks: {total_chunks}")
 
         
@@ -342,3 +336,20 @@ class FPGA:
 
         # store expected length in bytes (useful for verification later)
         self.controller.sha_expected_len = len(data_bytes)
+
+
+    def rng_operation(self):
+        rng_cmd = self.dp.bits_to_byte("00000100")
+        self.controller.send_bytes(rng_cmd)
+        print(f"sent byte: {rng_cmd.hex()}")
+
+
+
+    def test_byte(self, test_byte_tx: bytes): 
+        test_cmd = self.dp.bits_to_byte("00000101")
+        self.controller.send_bytes(test_cmd)
+        print(f"sent byte: {test_cmd.hex()}")
+
+        self.controller.send_bytes(test_byte_tx)
+        
+        print(f"senf byte {test_byte_tx.hex()}")

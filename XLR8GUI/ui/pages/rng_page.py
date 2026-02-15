@@ -159,8 +159,14 @@ class RNGPage(QWidget):
         if self.iv_group.isVisible():
             iv = self.iv_output.text()
         cnfg = self.controller.config 
-        cnfg["key"] = key
-        cnfg["iv"]  = iv
+        if cnfg["key_size"] == 128:
+            cnfg["key"] = key[:32]
+        elif cnfg["key_size"] == 192:
+            cnfg["key"] = key[:48]
+        elif cnfg["key_size"] == 256:
+            cnfg["key"] = key
+
+        cnfg["iv"]  = iv[:32]
         self.controller.set_config(cnfg)
 
         self.status_label.setText("✅ Generated values applied to configuration")

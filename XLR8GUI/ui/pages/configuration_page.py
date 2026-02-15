@@ -115,13 +115,13 @@ class ConfigPage(QWidget):
         # =====================================================
         btn_row = QHBoxLayout()
         store_btn = QPushButton("Store Configuration")
-        reset_btn = QPushButton("Reset FPGA")
+        #reset_btn = QPushButton("Reset FPGA")
         btn_row.addWidget(store_btn)
-        btn_row.addWidget(reset_btn)
+        #btn_row.addWidget(reset_btn)
         layout.addLayout(btn_row)
 
         store_btn.clicked.connect(self.store)
-        reset_btn.clicked.connect(self.controller.reset_fpga)
+        #reset_btn.clicked.connect(self.controller.reset_fpga)
 
         # =====================================================
         # SEPARATOR SPACE
