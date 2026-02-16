@@ -69,6 +69,26 @@
       "operation": "block_lab",
       "software_time_ms": 5.4395000042859465,
       "timestamp": "2026-02-14 02:27:42"
+    },
+    {
+      "data_size": 196608,
+      "direction": "enc",
+      "fpga_time_ms": 20138.56400000077,
+      "key_size": 128,
+      "mode": "ECB",
+      "operation": "image",
+      "software_time_ms": 3.738899999007117,
+      "timestamp": "2026-02-15 23:18:48"
+    },
+    {
+      "data_size": 196624,
+      "direction": "dec",
+      "fpga_time_ms": 20250.893800002814,
+      "key_size": 128,
+      "mode": "ECB",
+      "operation": "image",
+      "software_time_ms": 2.6218999992124736,
+      "timestamp": "2026-02-15 23:20:34"
     }
   ]
 }

@@ -102,6 +102,11 @@ class SoftwareEngine:
             "hash_hex": digest_hex,
             "hash_out": output
         }
+    
+
+
+
+
     def stream_operation(self, stream_text=None, stream_in_path=None, 
                         stream_out_path=None, stream_is_hex=None, 
                         stream_out_hex=None):
@@ -221,9 +226,7 @@ class SoftwareEngine:
                     if not iv_bytes:
                         print("[ERROR] CTR mode requires nonce")
                         return None
-                    # CTR uses nonce, we'll use IV as nonce
                     from Crypto.Util import Counter
-                    # Create counter starting from IV
                     ctr = Counter.new(128, initial_value=int.from_bytes(iv_bytes, 'big'))
                     cipher = CryptoAES.new(key_bytes, CryptoAES.MODE_CTR, counter=ctr)
                 else:
@@ -284,23 +287,254 @@ class SoftwareEngine:
             return None
         
         # -------------------------
-        # FORMAT OUTPUT
+        # FORMAT OUTPUT (FIXED!)
         # -------------------------
         print(f"\n[OUTPUT] Formatting output")
         
         if stream_out_hex:
-            # Output as hex string
+            # Output as hex string (text file)
             final_output = output_bytes.hex()
+            output_mode = 'text'
             print(f"[OUTPUT] Format: HEX ({len(final_output)} chars)")
         else:
-            # Output as ASCII
-            try:
-                final_output = output_bytes.decode('utf-8', errors='replace')
-                print(f"[OUTPUT] Format: ASCII ({len(final_output)} chars)")
-            except:
-                # Fallback to latin-1 if UTF-8 fails
-                final_output = output_bytes.decode('latin-1', errors='replace')
-                print(f"[OUTPUT] Format: ASCII (latin-1 fallback)")
+            # Check if we're encrypting or decrypting
+            if direction == "enc":
+                # ENCRYPTED DATA - Must write as BINARY
+                # DO NOT decode! Encrypted data is random bytes!
+                final_output = output_bytes
+                output_mode = 'binary'
+                print(f"[OUTPUT] Format: BINARY ({len(output_bytes)} bytes)")
+            else:
+                # DECRYPTED DATA - Can decode to text
+                try:
+                    final_output = output_bytes.decode('utf-8', errors='replace')
+                    output_mode = 'text'
+                    print(f"[OUTPUT] Format: ASCII/UTF-8 ({len(final_output)} chars)")
+                except:
+                    # Fallback to latin-1 if UTF-8 fails
+                    final_output = output_bytes.decode('latin-1', errors='replace')
+                    output_mode = 'text'
+                    print(f"[OUTPUT] Format: ASCII (latin-1 fallback)")
+        
+        # -------------------------
+        # WRITE TO FILE (FIXED!)
+        # -------------------------
+        print(f"[OUTPUT] Writing to: {stream_out_path}")
+        print(f"[OUTPUT] Write mode: {output_mode}")
+        
+        try:
+            if output_mode == 'binary':
+                # Write binary data (encrypted)
+                with open(stream_out_path, 'wb') as f:
+                    f.write(final_output)
+                print(f"[OUTPUT] ✅ Binary file write successful ({len(final_output)} bytes)")
+            else:
+                # Write text data (hex or decrypted text)
+                with open(stream_out_path, 'w', encoding='utf-8') as f:
+                    f.write(final_output)
+                print(f"[OUTPUT] ✅ Text file write successful ({len(final_output)} chars)")
+        except Exception as e:
+            print(f"[OUTPUT] ❌ File write error: {e}")
+            return None
+        
+        # -------------------------
+        # RETURN RESULT (FIXED!)
+        # -------------------------
+        print("="*60)
+        print("STREAM OPERATION COMPLETE")
+        print("="*60 + "\n")
+        
+        # Return display data
+        if stream_out_hex:
+            # User chose HEX output → Show HEX
+            display_output = output_bytes[:500].hex()
+            if len(output_bytes) > 500:
+                display_output += "... (truncated)"
+        else:
+            # User chose ASCII output
+            if direction == "enc":
+                # Encrypted data - can't show as ASCII, show hex
+                display_output = "[Check tmp/software_stream_output.\n Binary encrypted data - " + str(len(output_bytes)) + " bytes]"
+            else:
+                # Decrypted data - show as ASCII
+                display_output = final_output[:1000]
+                if len(final_output) > 1000:
+                    display_output += "..."
+        
+        return {
+            "output": display_output,
+            "status": "success",
+            "output_path": stream_out_path,
+            "output_length": len(final_output) if output_mode == 'text' else len(output_bytes),
+            "output_mode": output_mode
+        }
+    
+
+
+
+
+
+
+    
+    def image_operation(self, stream_in_path=None, stream_out_path=None, stream_is_hex=None):
+        """
+        Perform image cipher operation in software using pycryptodome.
+        
+        Args:
+            stream_in_path: Input BMP file path
+            stream_out_path: Output BMP file path
+            stream_is_hex: Not used for images (always binary)
+        
+        Returns:
+            dict: {"status": "success", "output_path": path}
+        """
+        
+        print("\n" + "="*60)
+        print("SOFTWARE IMAGE OPERATION")
+        print("="*60)
+        
+        # Get configuration
+        key_hex = self.config["key"]
+        iv_hex = self.config["iv"]
+        mode = self.config["mode"].upper()
+        direction = self.config["direction"]
+        
+        print(f"Mode: {mode}")
+        print(f"Direction: {direction}")
+        print(f"Input: {stream_in_path}")
+        print(f"Output: {stream_out_path}")
+        
+        # Convert key and IV from hex to bytes
+        key_bytes = bytes.fromhex(key_hex)
+        iv_bytes = bytes.fromhex(iv_hex) if iv_hex else None
+        
+        # -------------------------
+        # READ BMP FILE
+        # -------------------------
+        print(f"\n[INPUT] Reading BMP file: {stream_in_path}")
+        
+        try:
+            with open(stream_in_path, 'rb') as f:
+                bmp_bytes = f.read()
+        except Exception as e:
+            print(f"[ERROR] Failed to read file: {e}")
+            return None
+        
+        # Separate header (54 bytes) and pixel data
+        header_len = 54
+        header = bmp_bytes[:header_len]
+        pixel_data = bmp_bytes[header_len:]
+        
+        print(f"[INPUT] Total BMP size: {len(bmp_bytes)} bytes")
+        print(f"[INPUT] Header: {header_len} bytes (preserved)")
+        print(f"[INPUT] Pixel data: {len(pixel_data)} bytes (will be ciphered)")
+        
+        # -------------------------
+        # PERFORM ENCRYPTION/DECRYPTION
+        # -------------------------
+        print(f"\n[CIPHER] Performing {direction.upper()}")
+        
+        try:
+            if direction == "enc":
+                # ENCRYPTION
+                
+                # Pad the pixel data (PKCS7 padding to 16-byte blocks)
+                padded_pixels = pad(pixel_data, CryptoAES.block_size)
+                print(f"[CIPHER] After padding: {len(padded_pixels)} bytes")
+                
+                # Create cipher based on mode
+                if mode == "ECB":
+                    cipher = CryptoAES.new(key_bytes, CryptoAES.MODE_ECB)
+                elif mode == "CBC":
+                    if not iv_bytes:
+                        print("[ERROR] CBC mode requires IV")
+                        return None
+                    cipher = CryptoAES.new(key_bytes, CryptoAES.MODE_CBC, iv=iv_bytes)
+                elif mode == "CFB":
+                    if not iv_bytes:
+                        print("[ERROR] CFB mode requires IV")
+                        return None
+                    cipher = CryptoAES.new(key_bytes, CryptoAES.MODE_CFB, iv=iv_bytes, segment_size=128)
+                elif mode == "OFB":
+                    if not iv_bytes:
+                        print("[ERROR] OFB mode requires IV")
+                        return None
+                    cipher = CryptoAES.new(key_bytes, CryptoAES.MODE_OFB, iv=iv_bytes)
+                elif mode == "CTR":
+                    if not iv_bytes:
+                        print("[ERROR] CTR mode requires nonce")
+                        return None
+                    from Crypto.Util import Counter
+                    ctr = Counter.new(128, initial_value=int.from_bytes(iv_bytes, 'big'))
+                    cipher = CryptoAES.new(key_bytes, CryptoAES.MODE_CTR, counter=ctr)
+                else:
+                    print(f"[ERROR] Unknown mode: {mode}")
+                    return None
+                
+                # Encrypt pixel data only
+                output_pixels = cipher.encrypt(padded_pixels)
+                print(f"[CIPHER] Encrypted: {len(output_pixels)} bytes")
+            
+            else:
+                # DECRYPTION
+                
+                # Create cipher based on mode
+                if mode == "ECB":
+                    cipher = CryptoAES.new(key_bytes, CryptoAES.MODE_ECB)
+                elif mode == "CBC":
+                    if not iv_bytes:
+                        print("[ERROR] CBC mode requires IV")
+                        return None
+                    cipher = CryptoAES.new(key_bytes, CryptoAES.MODE_CBC, iv=iv_bytes)
+                elif mode == "CFB":
+                    if not iv_bytes:
+                        print("[ERROR] CFB mode requires IV")
+                        return None
+                    cipher = CryptoAES.new(key_bytes, CryptoAES.MODE_CFB, iv=iv_bytes, segment_size=128)
+                elif mode == "OFB":
+                    if not iv_bytes:
+                        print("[ERROR] OFB mode requires IV")
+                        return None
+                    cipher = CryptoAES.new(key_bytes, CryptoAES.MODE_OFB, iv=iv_bytes)
+                elif mode == "CTR":
+                    if not iv_bytes:
+                        print("[ERROR] CTR mode requires nonce")
+                        return None
+                    from Crypto.Util import Counter
+                    ctr = Counter.new(128, initial_value=int.from_bytes(iv_bytes, 'big'))
+                    cipher = CryptoAES.new(key_bytes, CryptoAES.MODE_CTR, counter=ctr)
+                else:
+                    print(f"[ERROR] Unknown mode: {mode}")
+                    return None
+                
+                # Decrypt pixel data
+                decrypted_padded = cipher.decrypt(pixel_data)
+                print(f"[CIPHER] Decrypted (padded): {len(decrypted_padded)} bytes")
+                
+                # Unpad the result
+                try:
+                    output_pixels = unpad(decrypted_padded, CryptoAES.block_size)
+                    print(f"[CIPHER] After unpadding: {len(output_pixels)} bytes")
+                except ValueError as e:
+                    print(f"[ERROR] Unpadding failed: {e}")
+                    # Return without unpadding if it fails
+                    output_pixels = decrypted_padded
+        
+        except Exception as e:
+            print(f"[ERROR] Cipher operation failed: {e}")
+            return None
+        
+        # -------------------------
+        # REASSEMBLE BMP FILE
+        # -------------------------
+        print(f"\n[OUTPUT] Reassembling BMP file")
+        
+        # Combine original header + ciphered pixel data
+        output_bmp = header + output_pixels
+        
+        print(f"[OUTPUT] Output BMP size: {len(output_bmp)} bytes")
+        print(f"[OUTPUT]   - Header: {len(header)} bytes (unchanged)")
+        print(f"[OUTPUT]   - Pixels: {len(output_pixels)} bytes (ciphered)")
         
         # -------------------------
         # WRITE TO FILE
@@ -308,8 +542,8 @@ class SoftwareEngine:
         print(f"[OUTPUT] Writing to: {stream_out_path}")
         
         try:
-            with open(stream_out_path, 'w', encoding='utf-8') as f:
-                f.write(final_output)
+            with open(stream_out_path, 'wb') as f:  # Binary mode for BMP
+                f.write(output_bmp)
             print(f"[OUTPUT] ✅ File write successful")
         except Exception as e:
             print(f"[OUTPUT] ❌ File write error: {e}")
@@ -319,13 +553,11 @@ class SoftwareEngine:
         # RETURN RESULT
         # -------------------------
         print("="*60)
-        print("STREAM OPERATION COMPLETE")
+        print("IMAGE OPERATION COMPLETE")
         print("="*60 + "\n")
         
-        # Return first 1000 chars for GUI display (to avoid huge text)
         return {
-            "output": final_output[:1000] + ("..." if len(final_output) > 1000 else ""),
             "status": "success",
             "output_path": stream_out_path,
-            "output_length": len(final_output)
+            "output_size": len(output_bmp)
         }

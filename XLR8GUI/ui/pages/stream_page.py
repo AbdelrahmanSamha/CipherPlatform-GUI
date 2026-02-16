@@ -49,7 +49,7 @@ class StreamPage(QWidget):
         self.controller.config_updated.connect(self.on_config_update)
         # Listen for new data over UART
         self.controller.uart_stream_page_received.connect(self.on_stream_data_received)
-        
+        self.controller.operation_progress.connect(self.update_progress)
         # =========================================================
         # Input mode selection
         # =========================================================
@@ -218,6 +218,29 @@ class StreamPage(QWidget):
         btn_row.addWidget(self.record_metrics_btn)
         btn_row.addWidget(cancel_btn)
 
+        # ─────────────────────────────────────────────────────
+        # NEW: Add FPGA Progress Section (after FPGA output box)
+        # ─────────────────────────────────────────────────────
+        
+        fpga_progress_group = QGroupBox("FPGA Operation Progress")
+        fpga_progress_layout = QVBoxLayout()
+        
+        # Progress bar
+        self.fpga_progress_bar = QProgressBar()
+        self.fpga_progress_bar.setRange(0, 100)
+        self.fpga_progress_bar.setValue(0)
+        self.fpga_progress_bar.setTextVisible(True)
+        self.fpga_progress_bar.setFormat("%p%")  # Shows percentage
+        
+        # Progress label
+        self.fpga_progress_label = QLabel("Ready")
+        self.fpga_progress_label.setStyleSheet("padding: 5px;")
+        
+        fpga_progress_layout.addWidget(self.fpga_progress_bar)
+        fpga_progress_layout.addWidget(self.fpga_progress_label)
+        fpga_progress_group.setLayout(fpga_progress_layout)
+
+
         # =========================================================
         # Add all to main layout
         # =========================================================
@@ -233,6 +256,7 @@ class StreamPage(QWidget):
         main_layout.addWidget(self.file_group)
 
         main_layout.addLayout(outputs_container)
+        main_layout.addWidget(fpga_progress_group)
         main_layout.addWidget(comparison_group)
 
         main_layout.addWidget(self.progress)
@@ -332,9 +356,22 @@ class StreamPage(QWidget):
         all_match = True
         
         # -------------------------
-        # Compare GUI text
+        # Check if both are binary data messages
         # -------------------------
-        if fpga_text and software_text:
+        fpga_is_binary_msg = (fpga_text.startswith("[") and "Binary encrypted data" in fpga_text)
+        software_is_binary_msg = (software_text.startswith("[") and "Binary encrypted data" in software_text)
+        
+        both_are_binary_msgs = fpga_is_binary_msg and software_is_binary_msg
+        
+        # -------------------------
+        # Compare GUI text (only if NOT both binary messages)
+        # -------------------------
+        if both_are_binary_msgs:
+            print(f"\n[GUI TEXT COMPARISON]")
+            print("ℹ️ Both outputs show binary encrypted data messages")
+            print("   Skipping GUI comparison - will compare files instead")
+            results.append("ℹ️ Binary encrypted data - comparing files only")
+        elif fpga_text and software_text:
             print(f"\n[GUI TEXT COMPARISON]")
             print(f"FPGA length: {len(fpga_text)}")
             print(f"Software length: {len(software_text)}")
@@ -362,25 +399,28 @@ class StreamPage(QWidget):
             results.append("⚠️ No GUI outputs to compare")
         
         # -------------------------
-        # Compare files
+        # Compare files (BINARY comparison)
         # -------------------------
         fpga_file_exists = os.path.exists(fpga_file_path)
         software_file_exists = os.path.exists(software_file_path)
         
         print(f"\n[FILE COMPARISON]")
+        print(f"FPGA file: {fpga_file_path}")
         print(f"FPGA file exists: {fpga_file_exists}")
+        print(f"Software file: {software_file_path}")
         print(f"Software file exists: {software_file_exists}")
         
         if fpga_file_exists and software_file_exists:
             try:
-                with open(fpga_file_path, 'r', encoding='utf-8') as f:
+                # Read as BINARY (works for both encrypted and text files)
+                with open(fpga_file_path, 'rb') as f:
                     fpga_file_content = f.read()
                 
-                with open(software_file_path, 'r', encoding='utf-8') as f:
+                with open(software_file_path, 'rb') as f:
                     software_file_content = f.read()
                 
-                print(f"FPGA file size: {len(fpga_file_content)} chars")
-                print(f"Software file size: {len(software_file_content)} chars")
+                print(f"FPGA file size: {len(fpga_file_content)} bytes")
+                print(f"Software file size: {len(software_file_content)} bytes")
                 
                 if fpga_file_content == software_file_content:
                     print("✅ File outputs MATCH")
@@ -390,11 +430,19 @@ class StreamPage(QWidget):
                     results.append("❌ File outputs DO NOT MATCH")
                     all_match = False
                     
+                    # Show size mismatch if different
+                    if len(fpga_file_content) != len(software_file_content):
+                        size_msg = f"   Size mismatch: FPGA={len(fpga_file_content)} bytes vs Software={len(software_file_content)} bytes"
+                        print(size_msg)
+                        results.append(size_msg)
+                    
                     # Find first difference
-                    for i, (c1, c2) in enumerate(zip(fpga_file_content, software_file_content)):
-                        if c1 != c2:
-                            print(f"   First difference at position {i}: FPGA='{c1}' vs Software='{c2}'")
-                            results.append(f"   First diff at pos {i}")
+                    min_len = min(len(fpga_file_content), len(software_file_content))
+                    for i in range(min_len):
+                        if fpga_file_content[i] != software_file_content[i]:
+                            diff_msg = f"   First difference at byte {i}: FPGA=0x{fpga_file_content[i]:02X} vs Software=0x{software_file_content[i]:02X}"
+                            print(diff_msg)
+                            results.append(f"   First diff at byte {i}")
                             break
                             
             except Exception as e:
@@ -419,11 +467,12 @@ class StreamPage(QWidget):
         result_text = "\n".join(results)
         
         if all_match and results:
-            self.comparison_result.setText("🎉 ALL OUTPUTS MATCH!\n" + result_text)
+            self.comparison_result.setText("🎉 ALL OUTPUTS MATCH!\n\n" + result_text)
             self.comparison_result.setStyleSheet("color: green; font-weight: bold; padding: 6px;")
         else:
             self.comparison_result.setText(result_text)
             self.comparison_result.setStyleSheet("color: red; font-weight: bold; padding: 6px;")
+
 
     # =============================================================
     # Streaming control - FPGA
@@ -434,7 +483,12 @@ class StreamPage(QWidget):
         # Clear FPGA output and comparison
         self.fpga_output.clear()
         self.comparison_result.clear()
-        
+        # NEW: Reset progress
+        self.fpga_progress_bar.setValue(0)
+        self.fpga_progress_label.setText("Starting...")
+        self.fpga_progress_label.setStyleSheet("color: blue; padding: 5px;")        
+
+
         # Calculate and store data size
         self.data_size = self._calculate_data_size()
         
@@ -650,22 +704,28 @@ class StreamPage(QWidget):
         self.status_label.setText("✅ Config updated")
         self.status_label.setStyleSheet("color: green;")
 
-    # =============================================================
-    # UART data received (FPGA output)
-    # =============================================================
     @Slot(bytes)
     def on_stream_data_received(self, data: bytes):
         """Handle incoming FPGA stream data"""
+        
         if self.output_hex_radio.isChecked():
+            # User wants HEX output
             text = data.hex()
         else:
-            try:
-                text = data.decode("utf-8", errors="replace")
-            except:
-                text = str(data)
+            # User wants ASCII output
+            if self.controller.config["direction"] == "enc":
+                # ENCRYPTING - binary data, can't show as ASCII
+                text = f"[Check tmp/fpga_stream_output for full output.\n Binary encrypted data  - {len(data)} bytes]"
+                #text = f"[Binary encrypted data saved to file - {len(data)} bytes]\nCheck tmp/fpga_stream_output for full output"
+            else:
+                # DECRYPTING - plaintext, CAN show as ASCII
+                try:
+                    text = data.decode("utf-8", errors="replace")
+                except:
+                    text = str(data)
 
         # Add truncation notice if data is at 1000 byte limit
-        if len(data) >= 1000:
+        if len(data) >= 1000 and not self.encrypt_radio.isChecked():
             text += "\n\n... (Output truncated for display. Full output saved to tmp/fpga_stream_output)"
 
         # Display in FPGA output box
@@ -679,3 +739,32 @@ class StreamPage(QWidget):
         # Update status
         self.status_label.setText("✅ FPGA streaming complete")
         self.status_label.setStyleSheet("color: green;")
+    # ─────────────────────────────────────────────────────
+    # NEW: Progress update handler
+    # ─────────────────────────────────────────────────────
+    @Slot(int, int, int)
+    def update_progress(self, bytes_received, bytes_total, percentage):
+        '''Update progress bar and label'''
+        
+        # Update progress bar
+        self.fpga_progress_bar.setValue(percentage)
+        
+        # Format bytes nicely
+        if bytes_total < 1024:
+            label_text = f"{bytes_received} / {bytes_total} bytes ({percentage}%)"
+        elif bytes_total < 1024 * 1024:
+            recv_kb = bytes_received / 1024
+            total_kb = bytes_total / 1024
+            label_text = f"{recv_kb:.1f} / {total_kb:.1f} KB ({percentage}%)"
+        else:
+            recv_mb = bytes_received / (1024 * 1024)
+            total_mb = bytes_total / (1024 * 1024)
+            label_text = f"{recv_mb:.2f} / {total_mb:.2f} MB ({percentage}%)"
+        
+        self.fpga_progress_label.setText(label_text)
+        
+        # Change color based on progress
+        if percentage == 100:
+            self.fpga_progress_label.setStyleSheet("color: green; font-weight: bold; padding: 5px;")
+        else:
+            self.fpga_progress_label.setStyleSheet("color: blue; padding: 5px;")

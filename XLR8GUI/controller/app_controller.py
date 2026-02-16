@@ -20,9 +20,12 @@ class AppController(QObject):
     uart_test_page_received = Signal(bytes)
     uart_stream_page_received = Signal(bytes)
     uart_rng_page_received = Signal(bytes, bytes)
-    uart_image_page_received = Signal(bytes)
+    uart_image_page_received = Signal()
     uart_sha_page_received = Signal(bytes)
     metrics_store_signal = Signal (dict)
+
+    operation_progress = Signal(int, int, int)  # (received, total, percentage)
+
     def __init__(self):
         super().__init__()
 
@@ -103,11 +106,13 @@ class AppController(QObject):
         
         if op == "block_lab": 
             self.current_page = "block_lab" 
+            self.start_reading_event.set()
             self.fpga.block_lab_operation(block_lab)
             
 
         elif op == "stream": 
             self.current_page = "stream" 
+            self.start_reading_event.set()
             self.fpga.stream_operation(
                 text_data=stream_text,
                 input_path=stream_in_path,
@@ -118,24 +123,31 @@ class AppController(QObject):
             self.stream_out_hex = stream_out_hex
             
         elif op == "image":
+            
             self.current_page = "image"
+            self.start_reading_event.set()
             self.fpga.image_operation(
                 input_path=stream_in_path,
                 output_path=stream_out_path
             )
+            
 
         elif op =="rng": 
             self.current_page = "rng"
+            self.start_reading_event.set()
             self.fpga.rng_operation()
             
         elif op =="sha256": 
             self.current_page = "sha"
+            self.start_reading_event.set()
             self.fpga.sha_operation(text=sha_text, in_path=sha_in_path, is_hex=sha_is_hex)
         elif op == "test": 
-            self.fpga.test_byte(test_byte_tx = test_byte_tx)
             self.current_page = "test"
-        print("setting the read thread. ")
-        self.start_reading_event.set()
+            self.start_reading_event.set()
+            self.fpga.test_byte(test_byte_tx = test_byte_tx)
+            
+        #print("setting the read thread. ")
+        
         return True
 
     ####################################################################
@@ -171,7 +183,12 @@ class AppController(QObject):
                 stream_is_hex=stream_is_hex,
                 stream_out_hex=stream_out_hex
             )
-        
+        elif op == "image":
+            return self.software_engine.image_operation(
+           stream_in_path=stream_in_path,
+           stream_out_path=stream_out_path,
+           stream_is_hex=stream_is_hex
+       )
         # -------------------------
         # SHA256
         # -------------------------
@@ -288,11 +305,18 @@ class AppController(QObject):
                 # -------------------------
                 elif self.current_page == "stream":
                     print(f"[UART] Received: {self.serial_buffer.hex()}")
-                    
+
                     while len(self.serial_buffer) >= 16:
                         block = self.serial_buffer[:16]
                         self.serial_buffer = self.serial_buffer[16:]
                         self.stream_buffer += block
+                        
+                        # Emit progress
+                        bytes_received = len(self.stream_buffer)
+                        bytes_total = self.stream_expected_len
+                        percentage = int((bytes_received / bytes_total) * 100) if bytes_total > 0 else 0
+                        self.operation_progress.emit(bytes_received, bytes_total, percentage)
+                        
                         print(f"[STREAM] Block added. Buffer size: {len(self.stream_buffer)} bytes")
 
                         if len(self.stream_buffer) >= self.stream_expected_len:
@@ -306,50 +330,62 @@ class AppController(QObject):
                                 print(f"[STREAM] After unpadding: {len(result)} bytes")
                             
                             # -------------------------
-                            # ALWAYS WRITE TO FILE
+                            # WRITE TO FILE
                             # -------------------------
                             print(f"[STREAM] Writing to file: {self.stream_output_path}")
                             
-                            # Convert based on output format
+                            # Determine output format
                             if self.stream_out_hex:
-                                # Output as hex string
+                                # User wants HEX output
                                 output_data = result.hex()
+                                write_mode = 'text'
                                 print(f"[STREAM] Output format: HEX ({len(output_data)} chars)")
                             else:
-                                # Output as ASCII/raw bytes
-                                try:
-                                    output_data = result.decode('utf-8', errors='replace')
-                                    print(f"[STREAM] Output format: ASCII ({len(output_data)} chars)")
-                                except:
-                                    # Fallback to raw bytes if decode fails
+                                # User wants ASCII output
+                                if self.config["direction"] == "enc":
+                                    # ENCRYPTED - write as binary!
                                     output_data = result
-                                    print(f"[STREAM] Output format: RAW BYTES ({len(output_data)} bytes)")
+                                    write_mode = 'binary'
+                                    print(f"[STREAM] Output format: BINARY ({len(output_data)} bytes)")
+                                else:
+                                    # DECRYPTED - write as text
+                                    try:
+                                        output_data = result.decode('utf-8', errors='replace')
+                                        write_mode = 'text'
+                                        print(f"[STREAM] Output format: ASCII ({len(output_data)} chars)")
+                                    except:
+                                        output_data = result
+                                        write_mode = 'binary'
+                                        print(f"[STREAM] Output format: BINARY fallback ({len(output_data)} bytes)")
                             
-                            # Write to file
+                            # Write to file based on mode
                             try:
-                                if isinstance(output_data, bytes):
-                                    # Binary write
+                                if write_mode == 'binary':
                                     with open(self.stream_output_path, 'wb') as f:
                                         f.write(output_data)
+                                    print(f"[STREAM] ✅ Binary file write successful")
                                 else:
-                                    # Text write
                                     with open(self.stream_output_path, 'w', encoding='utf-8') as f:
                                         f.write(output_data)
-                                print(f"[STREAM] ✅ File write successful")
+                                    print(f"[STREAM] ✅ Text file write successful")
                             except Exception as e:
                                 print(f"[STREAM] ❌ File write error: {e}")
                             
                             # -------------------------
-                            # ALWAYS EMIT TO GUI (first 1000 bytes for display)
+                            # EMIT TO GUI
                             # -------------------------
-                            print(f"[STREAM] Emitting signal to GUI (first 1000 bytes)")
+                            print(f"[STREAM] Emitting signal to GUI")
                             
-                            # Emit raw bytes (first 1000) - GUI will handle formatting
+                            # Emit raw bytes - GUI will format based on user choice
+                            # Send first 1000 bytes
                             gui_data = result[:1000]
                             self.uart_stream_page_received.emit(gui_data)
                             
                             if len(result) > 1000:
-                                print(f"[STREAM] ⚠️ Output truncated for GUI display. Full data saved to file.")
+                                print(f"[STREAM] ⚠️ Output truncated for GUI display")
+                            
+                            # Emit 100% progress
+                            self.operation_progress.emit(bytes_total, bytes_total, 100)
                             
                             # Reset stream state
                             print(f"[STREAM] Resetting stream state")
@@ -362,13 +398,22 @@ class AppController(QObject):
                 # -------------------------
                 elif self.current_page == "image":
                     # Make sure we know the expected length
-                    if not self.stream_expected_len or not hasattr(self.controller, "image_header"):
+                    #print("check point 0")
+                    if not self.stream_expected_len or not hasattr(self, "image_header"):
                         continue  # wait until image_operation set these
+                    #print("check point 1")
 
                     while len(self.serial_buffer) >= 16:  # process in 16-byte chunks
                         block = self.serial_buffer[:16]
                         self.serial_buffer = self.serial_buffer[16:]
                         self.stream_buffer += block
+
+                        # NEW: Emit progress
+                        bytes_received = len(self.stream_buffer)
+                        bytes_total = self.stream_expected_len
+                        percentage = int((bytes_received / bytes_total) * 100) if bytes_total > 0 else 0
+                        self.operation_progress.emit(bytes_received, bytes_total, percentage)
+                        #print("check point 2")
 
                         # Check if full image data received
                         if len(self.stream_buffer) >= self.stream_expected_len:
@@ -379,15 +424,16 @@ class AppController(QObject):
                                 result = self.data_processing.pkcs7_unpad(result)
 
                             # Reconstruct BMP with original header
-                            bmp_bytes = self.controller.image_header + result
+                            bmp_bytes = self.image_header + result
 
                             # Write to file if path exists
-                            if self.stream_output_path:
-                                self.data_processing.write_file(self.stream_output_path, bmp_bytes)
-                            else:
-                                # Emit signal to page to show preview
-                                self.uart_image_page_received.emit(bmp_bytes)
+                            
+                            self.data_processing.write_file(self.stream_output_path, bmp_bytes)
+                            
+                            # Emit signal to page to show preview
+                            self.uart_image_page_received.emit()
 
+                            self.operation_progress.emit(bytes_total, bytes_total, 100)
                             # Reset stream state
                             self.stream_buffer = b''
                             self.stream_expected_len = 0

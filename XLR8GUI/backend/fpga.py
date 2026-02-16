@@ -248,20 +248,20 @@ class FPGA:
         key_bytes = self.dp.get_padded_key_bytes()  # NEW: Use padded key
         for byte in key_bytes:
             self.controller.send_bytes(bytes([byte]))
-            print(f"sent key byte: {byte:02X}")
+            #print(f"sent key byte: {byte:02X}")
 
         # ----------------- Send IV/Nonce if needed -----------------
         if self.config["mode"] in ["CBC", "CTR", "CFB", "OFB"]:
             iv_bytes = self.dp.get_iv_bytes()
             for byte in iv_bytes:
                 self.controller.send_bytes(bytes([byte]))
-                print(f"sent IV byte: {byte:02X}")
+                #print(f"sent IV byte: {byte:02X}")
 
         # ----------------- Send pixel data -----------------
         print("about to send pixel data bytes:")
         for byte in pixel_data:
             self.controller.send_bytes(bytes([byte]))
-            print(f"sent data byte: {byte:02X}")
+            #print(f"sent data byte: {byte:02X}")
 
          
 
