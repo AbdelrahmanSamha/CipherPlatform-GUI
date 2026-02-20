@@ -9,6 +9,7 @@ from ui.pages.test_page import UartTestPage
 from ui.pages.image_page import ImagePage
 from ui.pages.sha256_page import Sha256Page
 from ui.pages.metrics_page import MetricsPage 
+from ui.pages.key_exchange_page import KeyExchangePage
 
 class MainWindow(QWidget):
     def __init__(self, controller):
@@ -35,16 +36,17 @@ class MainWindow(QWidget):
         self.test_page = UartTestPage(controller)
         self.image_page = ImagePage(controller)
         self.sha256_page = Sha256Page(controller)
-        
+        self.keyexchange_page = KeyExchangePage(controller)
 
         self.pages.addWidget(self.config_page)     # index 0
-        self.pages.addWidget(self.block_lab)       # index 1
-        self.pages.addWidget(self.streaming_page)  # index 2
-        self.pages.addWidget(self.image_page)      # index 3
-        self.pages.addWidget(self.sha256_page)     # index 4
-        self.pages.addWidget(self.rng_page)        # index 5
-        self.pages.addWidget(self.metrics_page)    # index 6
-        self.pages.addWidget(self.test_page)       #index 7
+        self.pages.addWidget(self.keyexchange_page) # index 1 
+        self.pages.addWidget(self.block_lab)       # index 2
+        self.pages.addWidget(self.streaming_page)  # index 3
+        self.pages.addWidget(self.image_page)      # index 4
+        self.pages.addWidget(self.sha256_page)     # index 5
+        self.pages.addWidget(self.rng_page)        # index 6
+        self.pages.addWidget(self.metrics_page)    # index 7
+        self.pages.addWidget(self.test_page)       #index 8
 
         # Layout
         layout = QHBoxLayout()
@@ -56,17 +58,19 @@ class MainWindow(QWidget):
     def change_page(self, page_name):
         if page_name == "config":
             self.pages.setCurrentIndex(0)
-        elif page_name == "block":
+        elif page_name == "key_exchange":
             self.pages.setCurrentIndex(1)
-        elif page_name == "stream":
+        elif page_name == "block":
             self.pages.setCurrentIndex(2)
-        elif page_name == "image": 
+        elif page_name == "stream":
             self.pages.setCurrentIndex(3)
-        elif page_name =="sha":
+        elif page_name == "image": 
             self.pages.setCurrentIndex(4)
-        elif page_name == "rng":
+        elif page_name =="sha":
             self.pages.setCurrentIndex(5)
-        elif page_name =="metrics": 
+        elif page_name == "rng":
             self.pages.setCurrentIndex(6)
-        elif page_name =="test": 
+        elif page_name =="metrics": 
             self.pages.setCurrentIndex(7)
+        elif page_name =="test": 
+            self.pages.setCurrentIndex(8)

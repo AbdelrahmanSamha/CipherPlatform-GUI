@@ -23,15 +23,16 @@ class AppController(QObject):
     uart_image_page_received = Signal()
     uart_sha_page_received = Signal(bytes)
     metrics_store_signal = Signal (dict)
-
+    uart_keyexchange_page_received = Signal(bytes)
+    
     operation_progress = Signal(int, int, int)  # (received, total, percentage)
 
     def __init__(self):
         super().__init__()
 
         self.config = {
-            "mode": None,
-            "key_size": None,
+            "mode": "ECB",
+            "key_size": 128,
             "key": None,
             "iv": None, 
             "direction": "enc"
@@ -451,7 +452,11 @@ class AppController(QObject):
                         self.uart_sha_page_received.emit(sha_block)
                         print(f"emitted SHA block: {sha_block.hex()}")               
                             
-
+                elif self.current_page == "keyexchange":
+                    while len(self.serial_buffer) >= 32:
+                        result = self.serial_buffer[:32]
+                        self.serial_buffer = self.serial_buffer[32:]
+                        self.uart_keyexchange_page_received.emit(result)
                 # -------------------------
                 # RNG PAGE
                 # -------------------------

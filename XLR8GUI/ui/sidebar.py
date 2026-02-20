@@ -9,6 +9,7 @@ class Sidebar(QWidget):
 
         layout = QVBoxLayout()
         config_btn = QPushButton("Configuration")
+        key_exchange_btn = QPushButton ("Key Exchange")
         block_btn = QPushButton("Block Lab Cipher")
         stream_btn = QPushButton("Stream Cipher")
         rng_btn = QPushButton("RNG")
@@ -25,8 +26,10 @@ class Sidebar(QWidget):
         image_btn.clicked.connect(lambda: self.page_selected.emit("image"))
         sha_btn.clicked.connect(lambda: self.page_selected.emit("sha"))
         test_btn.clicked.connect(lambda: self.page_selected.emit("test"))
+        key_exchange_btn.clicked.connect(lambda:self.page_selected.emit("key_exchange"))
 
         layout.addWidget(config_btn)
+        layout.addWidget(key_exchange_btn)
         layout.addWidget(block_btn)
         layout.addWidget(stream_btn)
         layout.addWidget(image_btn)
