@@ -18,14 +18,14 @@ class MetricsPage(QWidget):
 
     FPGA_CYCLES = {
         "key_expansion": {
-            128: 80,
-            192: 100,
-            256: 120,
+            128: 83,
+            192: 99,
+            256: 115,
         },
         "block_cipher": {
-            128: 10,
-            192: 15,
-            256: 20,
+            128: 22,
+            192: 26,
+            256: 30,
         },
         "uart_block": 8640,
     }

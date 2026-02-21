@@ -344,7 +344,9 @@ class FPGA:
         print(f"sent byte: {rng_cmd.hex()}")
 
 
+        
 
+    
     def test_byte(self, test_byte_tx: bytes): 
         test_cmd = self.dp.bits_to_byte("00000101")
         self.controller.send_bytes(test_cmd)
@@ -353,3 +355,22 @@ class FPGA:
         self.controller.send_bytes(test_byte_tx)
         
         print(f"senf byte {test_byte_tx.hex()}")
+
+
+    def keyexchange_operation(self, private_key, public_input):
+        # ----------------- Send command -----------------
+        kx_cmd = self.dp.bits_to_byte("00000110")  # KeyExchange opcode
+        self.controller.send_bytes(kx_cmd)
+        print(f"sent byte: {kx_cmd.hex()}")
+
+        # ----------------- Send private key (32 bytes) -----------------
+        print("about to send private key bytes:")
+        for byte in private_key:
+            self.controller.send_bytes(bytes([byte]))
+            print(f"sent byte: {byte:02X}")
+
+        # ----------------- Send public input (32 bytes) -----------------
+        print("about to send public input bytes:")
+        for byte in public_input:
+            self.controller.send_bytes(bytes([byte]))
+            print(f"sent byte: {byte:02X}")

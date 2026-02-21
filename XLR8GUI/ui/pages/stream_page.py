@@ -467,7 +467,7 @@ class StreamPage(QWidget):
         result_text = "\n".join(results)
         
         if all_match and results:
-            self.comparison_result.setText("🎉 ALL OUTPUTS MATCH!\n\n" + result_text)
+            self.comparison_result.setText(" ALL OUTPUTS MATCH!\n\n" + result_text)
             self.comparison_result.setStyleSheet("color: green; font-weight: bold; padding: 6px;")
         else:
             self.comparison_result.setText(result_text)

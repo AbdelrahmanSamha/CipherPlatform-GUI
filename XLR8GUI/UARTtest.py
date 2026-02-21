@@ -13,7 +13,7 @@ def open_serial_port(port):
     try:
         ser = serial.Serial(
             port=port,
-            baudrate=115200,
+            baudrate=921600,
             bytesize=serial.EIGHTBITS,
             parity=serial.PARITY_NONE,
             stopbits=serial.STOPBITS_ONE,

@@ -24,7 +24,7 @@ class AppController(QObject):
     uart_sha_page_received = Signal(bytes)
     metrics_store_signal = Signal (dict)
     uart_keyexchange_page_received = Signal(bytes)
-    
+
     operation_progress = Signal(int, int, int)  # (received, total, percentage)
 
     def __init__(self):
@@ -78,8 +78,11 @@ class AppController(QObject):
         self.config.update(config) 
         self.config_updated.emit(config)
 
-    def fpga_operation(self, op=None,test_byte_tx= None, block_lab=None, stream_text=None, stream_in_path=None, stream_out_path=None,stream_out_hex=None, stream_is_hex=None,
-                       sha_text=None, sha_in_path=None, sha_is_hex=None): 
+    def fpga_operation(self, op=None, test_byte_tx=None, block_lab=None,
+                        stream_text=None, stream_in_path=None, stream_out_path=None,
+                        stream_out_hex=None, stream_is_hex=None,
+                        sha_text=None, sha_in_path=None, sha_is_hex=None,
+                        kx_private=None, kx_public=None): 
         if not op :
             print("failed FPGA operation, no op is selected") 
             return  
@@ -142,6 +145,18 @@ class AppController(QObject):
             self.current_page = "sha"
             self.start_reading_event.set()
             self.fpga.sha_operation(text=sha_text, in_path=sha_in_path, is_hex=sha_is_hex)
+
+
+        elif op == "keyexchange":
+            self.current_page = "keyexchange"
+            self.start_reading_event.set()
+
+            # Placeholder for Curve25519 scalar multiplication
+            self.fpga.keyexchange_operation(
+                private_key=kx_private,
+                public_input=kx_public
+            )
+
         elif op == "test": 
             self.current_page = "test"
             self.start_reading_event.set()
@@ -155,7 +170,8 @@ class AppController(QObject):
     def software_operation(self, op=None, block_lab=None, sha_text=None, sha_in_path=None, 
                         sha_is_hex=None, sha_out_hex=None, stream_text=None, 
                         stream_in_path=None, stream_out_path=None, stream_is_hex=None, 
-                        stream_out_hex=None):
+                        stream_out_hex=None,
+                        kx_private=None, kx_public=None):
         """
         Perform software-side operations.
 
@@ -196,6 +212,15 @@ class AppController(QObject):
         elif op == "sha256": 
             return self.software_engine.hash_sha256(sha_text, sha_in_path, sha_is_hex, sha_out_hex)
         
+
+                # -------------------------
+        # KEY EXCHANGE (Curve25519)
+        # -------------------------
+        elif op == "keyexchange":
+            return self.software_engine.keyexchange_operation(
+                scalar=kx_private,
+                u_coordinate=kx_public
+            )
         # -------------------------
         # UNKNOWN OP
         # -------------------------

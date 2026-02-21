@@ -561,3 +561,96 @@ class SoftwareEngine:
             "output_path": stream_out_path,
             "output_size": len(output_bmp)
         }
+    
+    def keyexchange_operation(self, scalar, u_coordinate):
+        """
+        Perform Curve25519 scalar multiplication in software.
+        
+        This implements X25519 key exchange:
+        - To generate public key: scalar × base_point(9)
+        - To compute shared secret: my_private × their_public
+        
+        Args:
+            scalar: Private key (32 bytes)
+            u_coordinate: Point on curve (32 bytes)
+                - For public key generation: b'\x09' + b'\x00'*31
+                - For shared secret: other party's public key
+        
+        Returns:
+            bytes: 32-byte result (public key or shared secret)
+        """
+        
+        print("\n" + "="*60)
+        print("SOFTWARE CURVE25519 OPERATION")
+        print("="*60)
+        
+        try:
+            from cryptography.hazmat.primitives.asymmetric import x25519
+            from cryptography.hazmat.primitives import serialization
+        except ImportError:
+            print("❌ cryptography library not installed")
+            print("   Install with: pip install cryptography")
+            return None
+        
+        # Validate inputs
+        if not isinstance(scalar, bytes) or len(scalar) != 32:
+            print(f"❌ Invalid scalar: must be 32 bytes, got {len(scalar) if isinstance(scalar, bytes) else 'not bytes'}")
+            return None
+        
+        if not isinstance(u_coordinate, bytes) or len(u_coordinate) != 32:
+            print(f"❌ Invalid u_coordinate: must be 32 bytes, got {len(u_coordinate) if isinstance(u_coordinate, bytes) else 'not bytes'}")
+            return None
+        
+        print(f"Scalar (private key): {scalar.hex().upper()}")
+        print(f"U-coordinate (point): {u_coordinate.hex().upper()}")
+        
+        # Check if this is public key generation (base point = 9)
+        is_public_key_gen = (u_coordinate == b'\x09' + b'\x00'*31)
+        
+        if is_public_key_gen:
+            print("\n[OPERATION] Generating public key from private key")
+            print("            (scalar × base_point)")
+        else:
+            print("\n[OPERATION] Computing shared secret")
+            print("            (my_private × their_public)")
+        
+        try:
+            # Method 1: Using X25519PrivateKey (preferred)
+            # Create private key object from scalar bytes
+            private_key = x25519.X25519PrivateKey.from_private_bytes(scalar)
+            
+            if is_public_key_gen:
+                # Generate public key
+                public_key = private_key.public_key()
+                
+                # Serialize to raw bytes (32 bytes, little-endian)
+                result = public_key.public_bytes(
+                    encoding=serialization.Encoding.Raw,
+                    format=serialization.PublicFormat.Raw
+                )
+                
+                print(f"\n[RESULT] Public key generated: {result.hex().upper()}")
+            
+            else:
+                # Compute shared secret
+                # Create public key object from u_coordinate
+                their_public_key = x25519.X25519PublicKey.from_public_bytes(u_coordinate)
+                
+                # Perform key exchange (scalar multiplication)
+                shared_secret = private_key.exchange(their_public_key)
+                
+                result = shared_secret
+                
+                print(f"\n[RESULT] Shared secret computed: {result.hex().upper()}")
+            
+            print("="*60)
+            print("CURVE25519 OPERATION COMPLETE")
+            print("="*60 + "\n")
+            
+            return result
+        
+        except Exception as e:
+            print(f"\n❌ Curve25519 operation failed: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
