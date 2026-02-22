@@ -89,6 +89,36 @@
       "operation": "image",
       "software_time_ms": 2.6218999992124736,
       "timestamp": "2026-02-15 23:20:34"
+    },
+    {
+      "data_size": 16,
+      "direction": "enc",
+      "fpga_time_ms": 81.50859999659588,
+      "key_size": 128,
+      "mode": "ECB",
+      "operation": "block_lab",
+      "software_time_ms": 7.381600000371691,
+      "timestamp": "2026-02-21 22:39:25"
+    },
+    {
+      "data_size": 245038,
+      "direction": "enc",
+      "fpga_time_ms": 39697.24510000378,
+      "key_size": 192,
+      "mode": "CBC",
+      "operation": "stream",
+      "software_time_ms": 6.969100002606865,
+      "timestamp": "2026-02-21 23:28:24"
+    },
+    {
+      "data_size": 245038,
+      "direction": "enc",
+      "fpga_time_ms": 37480.25990000315,
+      "key_size": 192,
+      "mode": "CBC",
+      "operation": "stream",
+      "software_time_ms": 7.040700002107769,
+      "timestamp": "2026-02-21 23:32:42"
     }
   ]
 }

@@ -1,0 +1,84 @@
+{
+  "metrics": [
+    {
+      "data_size": 16,
+      "direction": "enc",
+      "fpga_time_ms": 81.09849999891594,
+      "key_size": 128,
+      "mode": "ECB",
+      "operation": "block_lab",
+      "software_time_ms": 5.918800001381896,
+      "timestamp": "2026-02-21 22:46:54"
+    },
+    {
+      "data_size": 16,
+      "direction": "enc",
+      "fpga_time_ms": 65.24759999956586,
+      "key_size": 128,
+      "mode": "ECB",
+      "operation": "stream",
+      "software_time_ms": 5.248000001301989,
+      "timestamp": "2026-02-21 22:51:15"
+    },
+    {
+      "data_size": 416,
+      "direction": "enc",
+      "fpga_time_ms": 136.96709999931045,
+      "key_size": 256,
+      "mode": "CTR",
+      "operation": "stream",
+      "software_time_ms": 6.276699998124968,
+      "timestamp": "2026-02-21 23:00:14"
+    },
+    {
+      "data_size": 196608,
+      "direction": "enc",
+      "fpga_time_ms": 20325.284599999577,
+      "key_size": 256,
+      "mode": "CTR",
+      "operation": "image",
+      "software_time_ms": 2.1433000001707114,
+      "timestamp": "2026-02-21 23:04:57"
+    },
+    {
+      "data_size": 196624,
+      "direction": "dec",
+      "fpga_time_ms": 20281.14629999982,
+      "key_size": 256,
+      "mode": "CTR",
+      "operation": "image",
+      "software_time_ms": 2.3988000029930845,
+      "timestamp": "2026-02-21 23:09:54"
+    },
+    {
+      "data_size": 245038,
+      "direction": "enc",
+      "fpga_time_ms": 32464.765400000033,
+      "key_size": 192,
+      "mode": "CBC",
+      "operation": "stream",
+      "software_time_ms": 6.129599998530466,
+      "timestamp": "2026-02-21 23:36:43"
+    },
+    {
+      "data_size": 16,
+      "direction": "enc",
+      "fpga_time_ms": 87.31219999754103,
+      "key_size": 128,
+      "mode": "ECB",
+      "operation": "block_lab",
+      "software_time_ms": 4.7151999970083125,
+      "timestamp": "2026-02-22 00:35:45"
+    },
+    {
+      "data_size": 16,
+      "direction": "enc",
+      "fpga_time_ms": 65.21950000023935,
+      "key_size": 128,
+      "mode": "ECB",
+      "operation": "stream",
+      "software_time_ms": 4.850600002100691,
+      "timestamp": "2026-02-22 00:43:12"
+    }
+  ]
+}

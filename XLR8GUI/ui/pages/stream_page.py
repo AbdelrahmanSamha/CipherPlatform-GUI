@@ -14,7 +14,7 @@ class StreamPage(QWidget):
     def __init__(self, controller):
         super().__init__()
         self.controller = controller
-
+        self.only_compare_file = None
         # Metrics tracking
         self.fpga_done = False
         self.software_done = False
@@ -358,8 +358,8 @@ class StreamPage(QWidget):
         # -------------------------
         # Check if both are binary data messages
         # -------------------------
-        fpga_is_binary_msg = (fpga_text.startswith("[") and "Binary encrypted data" in fpga_text)
-        software_is_binary_msg = (software_text.startswith("[") and "Binary encrypted data" in software_text)
+        fpga_is_binary_msg = (fpga_text.startswith("[") and "Binary encrypted data" in fpga_text) or self.only_compare_file == True
+        software_is_binary_msg = (software_text.startswith("[") and "Binary encrypted data" in software_text) or self.only_compare_file == True
         
         both_are_binary_msgs = fpga_is_binary_msg and software_is_binary_msg
         
@@ -725,7 +725,8 @@ class StreamPage(QWidget):
                     text = str(data)
 
         # Add truncation notice if data is at 1000 byte limit
-        if len(data) >= 1000 and not self.encrypt_radio.isChecked():
+        if len(data) >= 1000 :
+            self.only_compare_file = True
             text += "\n\n... (Output truncated for display. Full output saved to tmp/fpga_stream_output)"
 
         # Display in FPGA output box

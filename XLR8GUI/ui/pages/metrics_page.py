@@ -74,19 +74,18 @@ class MetricsPage(QWidget):
         self.operation_info_label.setStyleSheet("font-size: 14px; padding: 5px;")
         latest_layout.addWidget(self.operation_info_label)
 
-        self.comparison_table = QTableWidget(4, 3)
+        self.comparison_table = QTableWidget(5, 3)
         self.comparison_table.setHorizontalHeaderLabels(
             ["Software", "FPGA (Measured)", "FPGA (Pure)"]
         )
         self.comparison_table.setVerticalHeaderLabels(
-            ["Time (ms)", "Throughput (MB/s)", "Blocks/sec", "Winner"]
+            ["Time (ms)", "Cycles", "Throughput (MB/s)", "Blocks/sec", "Winner"]
         )
         self.comparison_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.comparison_table.setEditTriggers(QTableWidget.NoEditTriggers)
 
-        # Ensure full latest operation area visible (show all 4 rows)
-        # Approximate minimum: header + 4 rows (row ~30 px each) => ~150-180
-        self.comparison_table.setMinimumHeight(160)
+        # Ensure full latest operation area visible (show all 5 rows now)
+        self.comparison_table.setMinimumHeight(190)
         self.comparison_table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
 
         latest_layout.addWidget(self.comparison_table)
@@ -333,35 +332,47 @@ class MetricsPage(QWidget):
         fpga_time = metric_data.get("fpga_time_ms", 0.0)
         fpga_pure_time = calculated.get("fpga_pure_time_ms", 0.0)
 
-        # Row 0: Time
+        # Row 0: Time (ms)
         self.comparison_table.setItem(0, 0, QTableWidgetItem(f"{software_time:.2f}"))
         self.comparison_table.setItem(0, 1, QTableWidgetItem(f"{fpga_time:.2f}"))
         self.comparison_table.setItem(0, 2, QTableWidgetItem(f"{fpga_pure_time:.2f}"))
 
-        # Row 1: Throughput (MB/s)
-        self.comparison_table.setItem(1, 0, QTableWidgetItem(f"{calculated['software_throughput']:.2f}"))
-        self.comparison_table.setItem(1, 1, QTableWidgetItem(f"{calculated['fpga_throughput']:.2f}"))
-        self.comparison_table.setItem(1, 2, QTableWidgetItem(f"{calculated['fpga_pure_throughput']:.2f}"))
+        # Row 1: Cycles
+        # Software: N/A (no cycle count)
+        self.comparison_table.setItem(1, 0, QTableWidgetItem("N/A"))
+        
+        # FPGA measured: calculate cycles
+        fpga_measured_cycles = int((fpga_time / 1000.0) * self.FPGA_CLOCK_HZ)
+        self.comparison_table.setItem(1, 1, QTableWidgetItem(f"{fpga_measured_cycles:,}"))
+        
+        # FPGA pure: calculate cycles
+        fpga_pure_cycles = int((fpga_pure_time / 1000.0) * self.FPGA_CLOCK_HZ)
+        self.comparison_table.setItem(1, 2, QTableWidgetItem(f"{fpga_pure_cycles:,}"))
 
-        # Row 2: Blocks/sec
-        self.comparison_table.setItem(2, 0, QTableWidgetItem(f"{calculated['software_blocks_per_sec']:.0f}"))
-        self.comparison_table.setItem(2, 1, QTableWidgetItem(f"{calculated['fpga_blocks_per_sec']:.0f}"))
-        self.comparison_table.setItem(2, 2, QTableWidgetItem(f"{calculated['fpga_pure_blocks_per_sec']:.0f}"))
+        # Row 2: Throughput (MB/s)
+        self.comparison_table.setItem(2, 0, QTableWidgetItem(f"{calculated['software_throughput']:.2f}"))
+        self.comparison_table.setItem(2, 1, QTableWidgetItem(f"{calculated['fpga_throughput']:.2f}"))
+        self.comparison_table.setItem(2, 2, QTableWidgetItem(f"{calculated['fpga_pure_throughput']:.2f}"))
 
-        # Row 3: Winner marker (measured)
+        # Row 3: Blocks/sec
+        self.comparison_table.setItem(3, 0, QTableWidgetItem(f"{calculated['software_blocks_per_sec']:.0f}"))
+        self.comparison_table.setItem(3, 1, QTableWidgetItem(f"{calculated['fpga_blocks_per_sec']:.0f}"))
+        self.comparison_table.setItem(3, 2, QTableWidgetItem(f"{calculated['fpga_pure_blocks_per_sec']:.0f}"))
+
+        # Row 4: Winner marker (measured)
         # Clear first
-        self.comparison_table.setItem(3, 0, QTableWidgetItem(""))
-        self.comparison_table.setItem(3, 1, QTableWidgetItem(""))
-        self.comparison_table.setItem(3, 2, QTableWidgetItem(""))
+        self.comparison_table.setItem(4, 0, QTableWidgetItem(""))
+        self.comparison_table.setItem(4, 1, QTableWidgetItem(""))
+        self.comparison_table.setItem(4, 2, QTableWidgetItem(""))
 
         winner_marker = "N/A"
         if software_time > 0 and fpga_time > 0:
             if software_time < fpga_time:
                 winner_marker = "Software"
-                self.comparison_table.setItem(3, 0, QTableWidgetItem("✅"))
+                self.comparison_table.setItem(4, 0, QTableWidgetItem("✅"))
             else:
                 winner_marker = "FPGA"
-                self.comparison_table.setItem(3, 1, QTableWidgetItem("✅"))
+                self.comparison_table.setItem(4, 1, QTableWidgetItem("✅"))
         else:
             # can't decide
             winner_marker = "N/A"
